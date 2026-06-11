@@ -62,12 +62,14 @@ export default function Battleship() {
   }, [room, navigate]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !room) return;
 
     const handler = (data: BattleshipState) => setState(data);
     socket.on('battleshipUpdate', handler);
+    socket.emit('requestGameState');
+
     return () => { socket.off('battleshipUpdate', handler); };
-  }, [socket]);
+  }, [socket, room]);
 
   const getPreviewCells = useCallback((row: number, col: number): Cell[] | null => {
     if (!selectedShip || !state) return null;

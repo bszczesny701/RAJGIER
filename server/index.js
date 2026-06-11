@@ -27,6 +27,7 @@ app.get('/health', (_req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
+  transports: ['websocket', 'polling'],
 });
 
 const rooms = new Map();
@@ -59,26 +60,76 @@ function emitRoomUpdate(room) {
   io.to(room.code).emit('roomUpdate', getRoomPublic(room));
 }
 
+function emitBattleshipUpdateToPlayer(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return;
+  const opponentId = getOpponent(room, playerId);
+  io.to(playerId).emit('battleshipUpdate', {
+    ...getPublicBattleshipState(room.gameState, playerId, opponentId),
+    opponentName: room.players.find((p) => p.id === opponentId)?.name,
+    myName: player.name,
+  });
+}
+
+function emitWordSearchUpdateToPlayer(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  if (!player) return;
+  io.to(playerId).emit('wordsearchUpdate', {
+    ...getPublicWordSearchState(room.gameState, playerId),
+    opponentName: room.players.find((p) => p.id !== playerId)?.name,
+    myName: player.name,
+    myId: playerId,
+  });
+}
+
 function emitBattleshipUpdate(room) {
   for (const player of room.players) {
-    const opponentId = getOpponent(room, player.id);
-    io.to(player.id).emit('battleshipUpdate', {
-      ...getPublicBattleshipState(room.gameState, player.id, opponentId),
-      opponentName: room.players.find((p) => p.id === opponentId)?.name,
-      myName: player.name,
-    });
+    emitBattleshipUpdateToPlayer(room, player.id);
   }
 }
 
 function emitWordSearchUpdate(room) {
   for (const player of room.players) {
-    io.to(player.id).emit('wordsearchUpdate', {
-      ...getPublicWordSearchState(room.gameState, player.id),
-      opponentName: room.players.find((p) => p.id !== player.id)?.name,
-      myName: player.name,
-      myId: player.id,
-    });
+    emitWordSearchUpdateToPlayer(room, player.id);
   }
+}
+
+function migratePlayerId(room, oldId, newId) {
+  if (oldId === newId || !room.gameState) return;
+
+  if (room.game === 'battleship') {
+    const gs = room.gameState;
+    if (gs.boards[oldId]) {
+      gs.boards[newId] = gs.boards[oldId];
+      delete gs.boards[oldId];
+    }
+    if (gs.enemyView[oldId]) {
+      gs.enemyView[newId] = gs.enemyView[oldId];
+      delete gs.enemyView[oldId];
+    }
+    if (gs.placementReady[oldId]) {
+      gs.placementReady[newId] = gs.placementReady[oldId];
+      delete gs.placementReady[oldId];
+    }
+    if (gs.currentTurn === oldId) gs.currentTurn = newId;
+    if (gs.winner === oldId) gs.winner = newId;
+  }
+
+  if (room.game === 'wordsearch') {
+    const gs = room.gameState;
+    if (gs.scores[oldId] !== undefined) {
+      gs.scores[newId] = gs.scores[oldId];
+      delete gs.scores[oldId];
+    }
+    for (const word of Object.keys(gs.foundBy)) {
+      if (gs.foundBy[word] === oldId) gs.foundBy[word] = newId;
+    }
+    if (gs.winner === oldId) gs.winner = newId;
+  }
+
+  const player = room.players.find((p) => p.id === oldId);
+  if (player) player.id = newId;
+  if (room.hostId === oldId) room.hostId = newId;
 }
 
 function startGame(room, game) {
@@ -250,13 +301,24 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('requestGameState', () => {
+    const room = rooms.get(currentRoom);
+    if (!room || room.status !== 'playing' || !room.gameState) return;
+
+    if (room.game === 'battleship') {
+      emitBattleshipUpdateToPlayer(room, socket.id);
+    } else if (room.game === 'wordsearch') {
+      emitWordSearchUpdateToPlayer(room, socket.id);
+    }
+  });
+
   socket.on('backToLobby', () => {
     const room = rooms.get(currentRoom);
     if (!room || room.hostId !== socket.id) return;
     resetToLobby(room);
   });
 
-  socket.on('rejoinRoom', ({ roomCode }, callback) => {
+  socket.on('rejoinRoom', ({ roomCode, playerName }, callback) => {
     const code = (roomCode || '').trim().toUpperCase();
     const room = rooms.get(code);
     if (!room) {
@@ -264,10 +326,18 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const existing = room.players.find((p) => p.id === socket.id);
+    const name = (playerName || '').trim().slice(0, 20);
+    const existing = room.players.find((p) => p.name === name)
+      || room.players.find((p) => p.id === socket.id);
+
     if (!existing) {
       callback?.({ success: false });
       return;
+    }
+
+    const oldId = existing.id;
+    if (oldId !== socket.id) {
+      migratePlayerId(room, oldId, socket.id);
     }
 
     currentRoom = code;
@@ -275,9 +345,9 @@ io.on('connection', (socket) => {
     callback?.({ success: true, room: getRoomPublic(room), playerId: socket.id });
 
     if (room.game === 'battleship' && room.gameState) {
-      emitBattleshipUpdate(room);
+      emitBattleshipUpdateToPlayer(room, socket.id);
     } else if (room.game === 'wordsearch' && room.gameState) {
-      emitWordSearchUpdate(room);
+      emitWordSearchUpdateToPlayer(room, socket.id);
     }
   });
 

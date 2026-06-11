@@ -65,10 +65,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [playerName]);
 
   useEffect(() => {
-    const s = io(SERVER_URL, { autoConnect: true });
+    const s = io(SERVER_URL, {
+      autoConnect: true,
+      transports: ['websocket', 'polling'],
+    });
     setSocket(s);
 
-    s.on('connect', () => setConnected(true));
+    const tryRejoin = () => {
+      const savedRoom = localStorage.getItem('raj-gier-room');
+      const savedName = localStorage.getItem('raj-gier-name');
+      if (!savedRoom || !savedName) return;
+
+      s.emit('rejoinRoom', { roomCode: savedRoom, playerName: savedName }, (res: {
+        success: boolean;
+        room?: Room;
+        playerId?: string;
+      }) => {
+        if (res.success && res.room && res.playerId) {
+          setPlayerId(res.playerId);
+          setRoom(res.room);
+          setRoomCode(res.room.code);
+        }
+      });
+    };
+
+    s.on('connect', () => {
+      setConnected(true);
+      tryRejoin();
+    });
     s.on('disconnect', () => setConnected(false));
     s.on('roomUpdate', (r: Room) => {
       setRoom(r);

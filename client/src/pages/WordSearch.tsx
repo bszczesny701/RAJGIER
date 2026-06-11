@@ -42,11 +42,14 @@ export default function WordSearch() {
   }, [room, navigate]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !room) return;
+
     const handler = (data: WordSearchState) => setState(data);
     socket.on('wordsearchUpdate', handler);
+    socket.emit('requestGameState');
+
     return () => { socket.off('wordsearchUpdate', handler); };
-  }, [socket]);
+  }, [socket, room]);
 
   const getCellFromPoint = useCallback((clientX: number, clientY: number): Cell | null => {
     const el = document.elementFromPoint(clientX, clientY);
