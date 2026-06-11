@@ -163,9 +163,45 @@ export default function Battleship() {
 
       {state.phase === 'placement' && !state.placementReady && (
         <>
-          <div className="card" style={{ padding: 16 }}>
+          <p className="placement-hint">
+            {selectedShip
+              ? `Tapnij planszę, aby postawić statek (${selectedShip.size})`
+              : 'Wybierz statek poniżej'}
+          </p>
+
+          <p className="board-label">Twoja flota ({placedShips.length}/10)</p>
+          <div
+            className="grid-board battleship-board"
+            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
+          >
+            {Array.from({ length: gridSize * gridSize }, (_, i) => {
+              const row = Math.floor(i / gridSize);
+              const col = i % gridSize;
+              const placed = placedShips.some((s) => s.cells.some((c) => c.row === row && c.col === col));
+              const isPreview = previewCells?.some((c) => c.row === row && c.col === col);
+
+              let className = 'grid-cell water';
+              if (placed) className += ' ship';
+              if (isPreview) className += previewValid ? ' preview-ship' : ' preview-invalid';
+
+              return (
+                <div
+                  key={i}
+                  className={className}
+                  onPointerEnter={() => setHoverCell({ row, col })}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    setHoverCell({ row, col });
+                    handlePlaceShip(row, col);
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          <div className="card" style={{ padding: 16, marginTop: 16 }}>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
-              Ustaw 10 statków na planszy
+              Wybierz statek do ustawienia
             </p>
             <div className="ship-picker">
               {available.map((ship, idx) => (
@@ -189,41 +225,13 @@ export default function Battleship() {
             </div>
           </div>
 
-          <p className="board-label">Twoja flota ({placedShips.length}/10)</p>
-          <div
-            className="grid-board"
-            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, maxWidth: 340 }}
-          >
-            {Array.from({ length: gridSize * gridSize }, (_, i) => {
-              const row = Math.floor(i / gridSize);
-              const col = i % gridSize;
-              const placed = placedShips.some((s) => s.cells.some((c) => c.row === row && c.col === col));
-              const isPreview = previewCells?.some((c) => c.row === row && c.col === col);
-
-              let className = 'grid-cell water';
-              if (placed) className += ' ship';
-              if (isPreview) className += previewValid ? ' preview-ship' : ' preview-invalid';
-
-              return (
-                <div
-                  key={i}
-                  className={className}
-                  onMouseEnter={() => setHoverCell({ row, col })}
-                  onMouseLeave={() => setHoverCell(null)}
-                  onPointerEnter={() => setHoverCell({ row, col })}
-                  onClick={() => handlePlaceShip(row, col)}
-                />
-              );
-            })}
-          </div>
-
           <button
             className="btn btn-primary"
             style={{ marginTop: 16 }}
             disabled={placedShips.length !== 10}
             onClick={handleConfirmPlacement}
           >
-            ✅ Gotowy!
+            ✅ Gotowy! ({placedShips.length}/10)
           </button>
         </>
       )}
@@ -239,8 +247,8 @@ export default function Battleship() {
         <>
           <p className="board-label">Twoja flota</p>
           <div
-            className="grid-board"
-            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, maxWidth: 340, marginBottom: 16 }}
+            className="grid-board battleship-board"
+            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, marginBottom: 16 }}
           >
             {state.myBoard?.flatMap((row, ri) =>
               row.map((cell, ci) => {
@@ -253,10 +261,10 @@ export default function Battleship() {
             )}
           </div>
 
-          <p className="board-label">Plansza {state.opponentName} — strzelaj!</p>
+          <p className="board-label">Plansza {state.opponentName} — tapnij, aby strzelić!</p>
           <div
-            className="grid-board"
-            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, maxWidth: 340 }}
+            className="grid-board battleship-board"
+            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
           >
             {state.enemyBoard?.flatMap((row, ri) =>
               row.map((cell, ci) => {
@@ -268,7 +276,10 @@ export default function Battleship() {
                   <div
                     key={`${ri}-${ci}`}
                     className={className}
-                    onClick={() => handleShoot(ri, ci)}
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      handleShoot(ri, ci);
+                    }}
                   />
                 );
               })

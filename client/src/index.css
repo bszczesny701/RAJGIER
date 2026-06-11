@@ -148,8 +148,9 @@ body {
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.35;
   cursor: not-allowed;
+  filter: grayscale(0.4);
 }
 
 .btn-primary {
@@ -405,6 +406,19 @@ body {
   margin: 0 auto;
   touch-action: none;
   user-select: none;
+  width: 100%;
+}
+
+.battleship-board {
+  max-width: min(360px, calc(100vw - 32px));
+  aspect-ratio: 1 / 1;
+  grid-template-rows: repeat(10, 1fr);
+}
+
+.battleship-board .grid-cell {
+  aspect-ratio: unset;
+  min-height: 0;
+  min-width: 0;
 }
 
 .grid-cell {
@@ -581,6 +595,32 @@ body {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+.placement-hint {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--accent-gold);
+  margin-bottom: 10px;
+  min-height: 1.2em;
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding: 16px 12px 32px;
+  }
+
+  .battleship-board {
+    max-width: calc(100vw - 24px);
+  }
+
+  .ship-picker {
+    justify-content: center;
+  }
+
+  .placement-controls .btn {
+    min-width: 0;
+  }
 }
 
 @media (max-width: 380px) {
