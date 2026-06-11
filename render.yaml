@@ -3,6 +3,6 @@ services:
     name: raj-gier
     runtime: node
     plan: free
-    buildCommand: npm install && npm run install:all && npm run build
+    buildCommand: npm install && npm install --include=dev --prefix client && npm install --prefix server && npm run build
     startCommand: npm start
     healthCheckPath: /health
