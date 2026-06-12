@@ -18,11 +18,27 @@ function createBattleshipState() {
     phase: 'placement',
     currentTurn: null,
     boards: {},
+    fleets: {},
     enemyView: {},
+    enemySunkCounts: {},
     placementReady: {},
     winner: null,
     lastShot: null,
+    lastSunk: null,
   };
+}
+
+function getSunkShipIds(board, fleet) {
+  if (!board || !fleet) return [];
+  return fleet
+    .filter((ship) => ship.cells.every(({ row, col }) => board[row][col].hit))
+    .map((ship) => ship.id);
+}
+
+function findNewlySunkShip(board, fleet, previouslySunk) {
+  const sunkNow = getSunkShipIds(board, fleet);
+  const prev = new Set(previouslySunk);
+  return sunkNow.find((id) => !prev.has(id)) || null;
 }
 
 function validateShips(ships) {
@@ -83,16 +99,20 @@ function placeShipsOnBoard(state, playerId, ships) {
   if (!validation.valid) return validation;
 
   const board = createEmptyBoard();
-  for (const ship of ships) {
+  const fleet = ships.map((ship, index) => {
+    const id = `${ship.id}-${index}`;
     for (const { row, col } of ship.cells) {
-      board[row][col] = { ship: ship.id, hit: false };
+      board[row][col] = { ship: id, hit: false };
     }
-  }
+    return { id, size: ship.size, cells: ship.cells };
+  });
 
   state.boards[playerId] = board;
+  state.fleets[playerId] = fleet;
   state.enemyView[playerId] = Array.from({ length: GRID_SIZE }, () =>
     Array.from({ length: GRID_SIZE }, () => ({ hit: false, miss: false }))
   );
+  state.enemySunkCounts[playerId] = { 4: 0, 3: 0, 2: 0, 1: 0 };
   state.placementReady[playerId] = true;
 
   return { valid: true };
@@ -135,6 +155,19 @@ function shoot(state, playerId, row, col, opponentId) {
   }
 
   state.lastShot = { row, col, hit, shooter: playerId };
+  state.lastSunk = null;
+
+  const enemyFleet = state.fleets[opponentId] || [];
+  const previouslySunk = getSunkShipIds(enemyBoard, enemyFleet);
+  const newlySunkId = findNewlySunkShip(enemyBoard, enemyFleet, previouslySunk);
+
+  if (newlySunkId) {
+    const sunkShip = enemyFleet.find((s) => s.id === newlySunkId);
+    if (sunkShip) {
+      state.enemySunkCounts[playerId][sunkShip.size] += 1;
+      state.lastSunk = { size: sunkShip.size, shooter: playerId };
+    }
+  }
 
   const allSunk = enemyBoard.every((rowCells) =>
     rowCells.every((c) => !c.ship || c.hit)
@@ -147,24 +180,39 @@ function shoot(state, playerId, row, col, opponentId) {
     state.currentTurn = opponentId;
   }
 
-  return { valid: true, hit, sunk: allSunk };
+  return { valid: true, hit, sunk: allSunk, shipSunk: !!newlySunkId };
+}
+
+function buildFleetStatus(board, fleet) {
+  const sunkIds = new Set(getSunkShipIds(board, fleet));
+  return (fleet || []).map(({ id, size }) => ({
+    id,
+    size,
+    sunk: sunkIds.has(id),
+  }));
 }
 
 function getPublicBattleshipState(state, playerId, opponentId) {
+  const myBoard = state.boards[playerId];
+  const myFleet = state.fleets[playerId];
+
   return {
     phase: state.phase,
     currentTurn: state.currentTurn,
-    myBoard: state.boards[playerId]?.map((row) =>
+    myBoard: myBoard?.map((row) =>
       row.map((cell) => ({
         ship: cell.ship,
         hit: cell.hit,
       }))
     ),
     enemyBoard: state.enemyView[playerId],
+    myFleet: buildFleetStatus(myBoard, myFleet),
+    enemySunkCounts: { ...(state.enemySunkCounts[playerId] || { 4: 0, 3: 0, 2: 0, 1: 0 }) },
     placementReady: !!state.placementReady[playerId],
     opponentReady: !!state.placementReady[opponentId],
     winner: state.winner,
     lastShot: state.lastShot,
+    lastSunk: state.lastSunk,
     shipTypes: SHIP_TYPES,
     gridSize: GRID_SIZE,
   };

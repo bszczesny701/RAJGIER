@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-
-interface Cell {
-  row: number;
-  col: number;
-}
+import FleetPanel from '../components/battleship/FleetPanel';
+import ShipSvg from '../components/battleship/ShipSvg';
+import {
+  getShipSegmentInfo,
+  shipSegmentClass,
+  type Cell,
+} from '../components/battleship/shipUtils';
 
 interface ShipType {
   id: string;
@@ -29,19 +31,42 @@ interface EnemyCell {
   miss: boolean;
 }
 
+interface FleetShip {
+  id: string;
+  size: number;
+  sunk: boolean;
+}
+
 interface BattleshipState {
   phase: 'placement' | 'battle' | 'finished';
   currentTurn: string | null;
   myBoard: BoardCell[][] | null;
   enemyBoard: EnemyCell[][] | null;
+  myFleet: FleetShip[];
+  enemySunkCounts: Record<number, number>;
   placementReady: boolean;
   opponentReady: boolean;
   winner: string | null;
   lastShot: { row: number; col: number; hit: boolean; shooter: string } | null;
+  lastSunk: { size: number; shooter: string } | null;
   shipTypes: ShipType[];
   gridSize: number;
   myName: string;
   opponentName: string;
+}
+
+function CellContent({
+  hit,
+  miss,
+  showHit,
+}: {
+  hit?: boolean;
+  miss?: boolean;
+  showHit?: boolean;
+}) {
+  if (hit && showHit) return <span className="cell-marker hit-marker">💥</span>;
+  if (miss) return <span className="cell-marker miss-marker">💧</span>;
+  return null;
 }
 
 function BoardGrid({
@@ -87,6 +112,7 @@ export default function Battleship() {
   const [horizontal, setHorizontal] = useState(true);
   const [placedShips, setPlacedShips] = useState<PlacedShip[]>([]);
   const [hoverCell, setHoverCell] = useState<Cell | null>(null);
+  const [sunkToast, setSunkToast] = useState<string | null>(null);
 
   useEffect(() => {
     if (!room || room.game !== 'battleship') {
@@ -103,6 +129,18 @@ export default function Battleship() {
 
     return () => { socket.off('battleshipUpdate', handler); };
   }, [socket, room, requestGameState]);
+
+  useEffect(() => {
+    if (!state?.lastSunk) return;
+    const byMe = state.lastSunk.shooter === playerId;
+    setSunkToast(
+      byMe
+        ? `🎯 Zatopiłeś statek ${state.lastSunk.size}-masztowy!`
+        : `💥 Przeciwnik zatopił twój statek ${state.lastSunk.size}-masztowy!`,
+    );
+    const timer = setTimeout(() => setSunkToast(null), 3000);
+    return () => clearTimeout(timer);
+  }, [state?.lastSunk, playerId]);
 
   const getPreviewCells = useCallback((row: number, col: number): Cell[] | null => {
     if (!selectedShip || !state) return null;
@@ -188,6 +226,8 @@ export default function Battleship() {
         )}
       </div>
 
+      {sunkToast && <div className="sunk-toast">{sunkToast}</div>}
+
       {error && (
         <div className="error-banner">
           <span>{error}</span>
@@ -209,7 +249,8 @@ export default function Battleship() {
                   className={`ship-btn ${selectedShip?.size === ship.size && selectedShip?.id === ship.id ? 'active' : ''}`}
                   onClick={() => setSelectedShip(ship)}
                 >
-                  {'█'.repeat(ship.size)} ({ship.size})
+                  <ShipSvg size={ship.size} compact />
+                  <span className="ship-btn-label">{ship.size}-masztowiec</span>
                 </button>
               ))}
             </div>
@@ -238,7 +279,10 @@ export default function Battleship() {
               const isPreview = previewCells?.some((c) => c.row === row && c.col === col);
 
               let className = 'grid-cell water';
-              if (placed) className += ' ship';
+              if (placed) {
+                const segment = getShipSegmentInfo(null, placedShips, row, col);
+                className = segment ? `grid-cell ${shipSegmentClass(segment)}` : 'grid-cell ship';
+              }
               if (isPreview) className += previewValid ? ' preview-ship' : ' preview-invalid';
 
               return (
@@ -248,7 +292,9 @@ export default function Battleship() {
                   className={className}
                   aria-label={`Pole ${row + 1}, ${col + 1}`}
                   onClick={() => handlePlaceShip(row, col)}
-                />
+                >
+                  {placed && <span className="ship-cell-inner" aria-hidden="true" />}
+                </button>
               );
             })}
           </BoardGrid>
@@ -272,18 +318,39 @@ export default function Battleship() {
 
       {state.phase === 'battle' && (
         <div className="battleship-battle">
-          <p className="board-label">Twoja flota</p>
+          <FleetPanel
+            title="Twoja flota"
+            shipTypes={state.shipTypes}
+            fleet={state.myFleet}
+            variant="mine"
+          />
+
+          <p className="board-label">Twoja flota — na morzu</p>
           <BoardGrid gridSize={gridSize}>
             {state.myBoard?.flatMap((row, ri) =>
               row.map((cell, ci) => {
                 let className = 'grid-cell water';
-                if (cell.ship && !cell.hit) className += ' ship';
+                const segment = getShipSegmentInfo(state.myBoard, null, ri, ci);
+                if (segment) className = `grid-cell ${shipSegmentClass(segment)}`;
                 if (cell.hit && cell.ship) className += ' hit';
                 if (cell.hit && !cell.ship) className += ' miss';
-                return <div key={`${ri}-${ci}`} className={className} />;
+
+                return (
+                  <div key={`${ri}-${ci}`} className={className}>
+                    {segment && <span className="ship-cell-inner" aria-hidden="true" />}
+                    <CellContent hit={cell.hit && !!cell.ship} miss={cell.hit && !cell.ship} showHit />
+                  </div>
+                );
               })
             )}
           </BoardGrid>
+
+          <FleetPanel
+            title={`Flota ${state.opponentName}`}
+            shipTypes={state.shipTypes}
+            sunkCounts={state.enemySunkCounts}
+            variant="enemy"
+          />
 
           <p className="board-label">Plansza {state.opponentName} — tapnij, aby strzelić!</p>
           <BoardGrid gridSize={gridSize}>
@@ -302,7 +369,9 @@ export default function Battleship() {
                     disabled={!isMyTurn || cell.hit || cell.miss}
                     aria-label={`Strzał ${ri + 1}, ${ci + 1}`}
                     onClick={() => handleShoot(ri, ci)}
-                  />
+                  >
+                    <CellContent hit={cell.hit} miss={cell.miss} showHit />
+                  </button>
                 );
               })
             )}
