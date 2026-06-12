@@ -25,6 +25,7 @@ function createBattleshipState() {
     winner: null,
     lastShot: null,
     lastSunk: null,
+    sunkEventSeq: 0,
   };
 }
 
@@ -110,7 +111,7 @@ function placeShipsOnBoard(state, playerId, ships) {
   state.boards[playerId] = board;
   state.fleets[playerId] = fleet;
   state.enemyView[playerId] = Array.from({ length: GRID_SIZE }, () =>
-    Array.from({ length: GRID_SIZE }, () => ({ hit: false, miss: false }))
+    Array.from({ length: GRID_SIZE }, () => ({ hit: false, miss: false, sunk: false, ship: null }))
   );
   state.enemySunkCounts[playerId] = { 4: 0, 3: 0, 2: 0, 1: 0 };
   state.placementReady[playerId] = true;
@@ -165,7 +166,20 @@ function shoot(state, playerId, row, col, opponentId) {
     const sunkShip = enemyFleet.find((s) => s.id === newlySunkId);
     if (sunkShip) {
       state.enemySunkCounts[playerId][sunkShip.size] += 1;
-      state.lastSunk = { size: sunkShip.size, shooter: playerId };
+      state.sunkEventSeq += 1;
+      state.lastSunk = {
+        eventId: state.sunkEventSeq,
+        size: sunkShip.size,
+        shooter: playerId,
+        victim: opponentId,
+        shipId: newlySunkId,
+        cells: sunkShip.cells,
+      };
+      for (const { row, col } of sunkShip.cells) {
+        view[row][col].hit = true;
+        view[row][col].sunk = true;
+        view[row][col].ship = newlySunkId;
+      }
     }
   }
 
@@ -195,6 +209,8 @@ function buildFleetStatus(board, fleet) {
 function getPublicBattleshipState(state, playerId, opponentId) {
   const myBoard = state.boards[playerId];
   const myFleet = state.fleets[playerId];
+  const opponentFleet = state.fleets[opponentId];
+  const opponentBoard = state.boards[opponentId];
 
   return {
     phase: state.phase,
@@ -207,6 +223,7 @@ function getPublicBattleshipState(state, playerId, opponentId) {
     ),
     enemyBoard: state.enemyView[playerId],
     myFleet: buildFleetStatus(myBoard, myFleet),
+    enemyFleet: buildFleetStatus(opponentBoard, opponentFleet),
     enemySunkCounts: { ...(state.enemySunkCounts[playerId] || { 4: 0, 3: 0, 2: 0, 1: 0 }) },
     placementReady: !!state.placementReady[playerId],
     opponentReady: !!state.placementReady[opponentId],
