@@ -29,11 +29,49 @@ function createBattleshipState() {
   };
 }
 
+function rebuildFleetFromBoard(board) {
+  if (!board) return [];
+
+  const byId = new Map();
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      const shipId = board[row][col].ship;
+      if (!shipId) continue;
+      if (!byId.has(shipId)) {
+        byId.set(shipId, { id: shipId, size: 0, cells: [] });
+      }
+      const ship = byId.get(shipId);
+      ship.cells.push({ row, col });
+      ship.size = ship.cells.length;
+    }
+  }
+
+  return Array.from(byId.values());
+}
+
+function getFleet(state, playerId) {
+  const stored = state.fleets[playerId];
+  if (stored?.length) return stored;
+  return rebuildFleetFromBoard(state.boards[playerId]);
+}
+
 function getSunkShipIds(board, fleet) {
-  if (!board || !fleet) return [];
+  if (!board || !fleet?.length) return [];
   return fleet
-    .filter((ship) => ship.cells.every(({ row, col }) => board[row][col].hit))
+    .filter((ship) => ship.cells.every(({ row, col }) => board[row][col]?.hit))
     .map((ship) => ship.id);
+}
+
+function syncSunkShipsOnView(view, board, fleet) {
+  for (const shipId of getSunkShipIds(board, fleet)) {
+    const ship = fleet.find((s) => s.id === shipId);
+    if (!ship) continue;
+    for (const { row, col } of ship.cells) {
+      view[row][col].hit = true;
+      view[row][col].sunk = true;
+      view[row][col].ship = shipId;
+    }
+  }
 }
 
 function findNewlySunkShip(board, fleet, previouslySunk) {
@@ -146,6 +184,8 @@ function shoot(state, playerId, row, col, opponentId) {
 
   const enemyBoard = state.boards[opponentId];
   const cell = enemyBoard[row][col];
+  const enemyFleet = getFleet(state, opponentId);
+  const previouslySunk = getSunkShipIds(enemyBoard, enemyFleet);
   const hit = !!cell.ship;
 
   if (hit) {
@@ -158,8 +198,6 @@ function shoot(state, playerId, row, col, opponentId) {
   state.lastShot = { row, col, hit, shooter: playerId };
   state.lastSunk = null;
 
-  const enemyFleet = state.fleets[opponentId] || [];
-  const previouslySunk = getSunkShipIds(enemyBoard, enemyFleet);
   const newlySunkId = findNewlySunkShip(enemyBoard, enemyFleet, previouslySunk);
 
   if (newlySunkId) {
@@ -175,13 +213,10 @@ function shoot(state, playerId, row, col, opponentId) {
         shipId: newlySunkId,
         cells: sunkShip.cells,
       };
-      for (const { row, col } of sunkShip.cells) {
-        view[row][col].hit = true;
-        view[row][col].sunk = true;
-        view[row][col].ship = newlySunkId;
-      }
     }
   }
+
+  syncSunkShipsOnView(view, enemyBoard, enemyFleet);
 
   const allSunk = enemyBoard.every((rowCells) =>
     rowCells.every((c) => !c.ship || c.hit)
@@ -198,8 +233,9 @@ function shoot(state, playerId, row, col, opponentId) {
 }
 
 function buildFleetStatus(board, fleet) {
-  const sunkIds = new Set(getSunkShipIds(board, fleet));
-  return (fleet || []).map(({ id, size }) => ({
+  const resolvedFleet = fleet?.length ? fleet : rebuildFleetFromBoard(board);
+  const sunkIds = new Set(getSunkShipIds(board, resolvedFleet));
+  return resolvedFleet.map(({ id, size }) => ({
     id,
     size,
     sunk: sunkIds.has(id),
@@ -208,9 +244,14 @@ function buildFleetStatus(board, fleet) {
 
 function getPublicBattleshipState(state, playerId, opponentId) {
   const myBoard = state.boards[playerId];
-  const myFleet = state.fleets[playerId];
-  const opponentFleet = state.fleets[opponentId];
+  const myFleet = getFleet(state, playerId);
+  const opponentFleet = getFleet(state, opponentId);
   const opponentBoard = state.boards[opponentId];
+  const myView = state.enemyView[playerId];
+
+  if (myView && opponentBoard && opponentFleet.length) {
+    syncSunkShipsOnView(myView, opponentBoard, opponentFleet);
+  }
 
   return {
     phase: state.phase,

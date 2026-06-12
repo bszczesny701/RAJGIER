@@ -1,4 +1,5 @@
 import ShipSvg from './ShipSvg';
+import { mergeFleetWithSunkCounts } from './fleetStatus';
 
 interface ShipType {
   id: string;
@@ -29,8 +30,11 @@ export default function FleetPanel({
 }: FleetPanelProps) {
   const items: { key: string; size: number; sunk: boolean }[] = [];
 
-  if (fleet) {
-    for (const ship of fleet) {
+  if (fleet?.length) {
+    const merged = sunkCounts
+      ? mergeFleetWithSunkCounts(fleet, shipTypes, sunkCounts)
+      : fleet;
+    for (const ship of merged) {
       items.push({ key: ship.id, size: ship.size, sunk: ship.sunk });
     }
   } else if (sunkCounts) {

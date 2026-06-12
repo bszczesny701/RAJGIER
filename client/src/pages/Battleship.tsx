@@ -7,7 +7,12 @@ import {
   getShipSegmentInfo,
   shipSegmentClass,
   type Cell,
+  type BoardCell,
 } from '../components/battleship/shipUtils';
+import {
+  enrichMyFleetFromBoard,
+  mergeFleetWithSunkCounts,
+} from '../components/battleship/fleetStatus';
 
 interface ShipType {
   id: string;
@@ -19,11 +24,6 @@ interface PlacedShip {
   id: string;
   size: number;
   cells: Cell[];
-}
-
-interface BoardCell {
-  ship: string | null;
-  hit: boolean;
 }
 
 interface EnemyCell {
@@ -247,6 +247,12 @@ export default function Battleship() {
   const isMyTurn = state.currentTurn === playerId;
   const gridSize = state.gridSize;
   const revealedEnemyBoard = buildRevealedEnemyBoard(state.enemyBoard);
+  const myFleetDisplay = enrichMyFleetFromBoard(state.myBoard, state.myFleet ?? []);
+  const enemyFleetDisplay = mergeFleetWithSunkCounts(
+    state.enemyFleet ?? [],
+    state.shipTypes,
+    state.enemySunkCounts,
+  );
 
   return (
     <div className="page">
@@ -354,7 +360,7 @@ export default function Battleship() {
           <FleetPanel
             title="Twoja flota"
             shipTypes={state.shipTypes}
-            fleet={state.myFleet}
+            fleet={myFleetDisplay}
             variant="mine"
           />
 
@@ -381,7 +387,8 @@ export default function Battleship() {
           <FleetPanel
             title={`Flota ${state.opponentName}`}
             shipTypes={state.shipTypes}
-            fleet={state.enemyFleet}
+            fleet={enemyFleetDisplay}
+            sunkCounts={state.enemySunkCounts}
             variant="enemy"
           />
 
