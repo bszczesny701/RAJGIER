@@ -126,7 +126,11 @@ export default function Battleship() {
   const lastSunkEventRef = useRef(0);
 
   useEffect(() => {
-    if (!room || room.game !== 'battleship') {
+    if (!room) {
+      navigate('/');
+      return;
+    }
+    if (room.game !== 'battleship') {
       navigate('/lobby');
     }
   }, [room, navigate]);

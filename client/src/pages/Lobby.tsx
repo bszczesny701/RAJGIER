@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import { getGameLabel, getGameRoute } from '../lib/gameRoutes';
 
 export default function Lobby() {
   const navigate = useNavigate();
@@ -17,22 +18,11 @@ export default function Lobby() {
 
   const isHost = room?.hostId === playerId;
   const canStart = room && room.players.length === 2;
+  const gameRoute = getGameRoute(room?.game);
 
   useEffect(() => {
     if (!room) {
       navigate('/');
-    }
-  }, [room, navigate]);
-
-  useEffect(() => {
-    if (room?.status === 'playing' && room.game === 'battleship') {
-      navigate('/statki');
-    } else if (room?.status === 'playing' && room.game === 'wordsearch') {
-      navigate('/wykreslanka');
-    } else if (room?.status === 'playing' && room.game === 'crossword') {
-      navigate('/krzyzowka');
-    } else if (room?.status === 'playing' && room.game === 'sudoku') {
-      navigate('/sudoku');
     }
   }, [room, navigate]);
 
@@ -48,6 +38,23 @@ export default function Lobby() {
         <div className="error-banner">
           <span>{error}</span>
           <button type="button" onClick={clearError} aria-label="Zamknij">×</button>
+        </div>
+      )}
+
+      {room.status === 'playing' && room.game && gameRoute && (
+        <div className="card active-game-banner">
+          <div>
+            <p className="active-game-label">Gra w toku</p>
+            <h3 className="active-game-title">{getGameLabel(room.game)}</h3>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={() => navigate(gameRoute)}>
+            ▶ Kontynuuj grę
+          </button>
+          {isHost && (
+            <button type="button" className="btn btn-secondary" onClick={backToLobby}>
+              Zakończ grę
+            </button>
+          )}
         </div>
       )}
 
@@ -138,10 +145,6 @@ export default function Lobby() {
           🔄 Wróć do wyboru gry
         </button>
       )}
-
-      <button className="btn btn-secondary" onClick={() => navigate('/')} style={{ marginTop: 16 }}>
-        ← Wyjdź
-      </button>
 
       {gameOver && (
         <div className="modal-overlay" onClick={clearGameOver}>

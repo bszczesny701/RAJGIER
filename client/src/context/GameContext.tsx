@@ -52,6 +52,7 @@ interface GameContextValue {
   joinRoom: (code: string) => Promise<boolean>;
   selectGame: (game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku') => void;
   backToLobby: () => void;
+  leaveRoom: () => void;
   requestGameState: () => void;
 }
 
@@ -191,6 +192,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket?.emit('backToLobby', { sessionId, roomCode });
   }, [socket, sessionId, roomCode, clearGameOver]);
 
+  const leaveRoom = useCallback(() => {
+    clearGameOver();
+    if (roomCode) {
+      socket?.emit('leaveRoom', { sessionId, roomCode });
+    }
+    localStorage.removeItem('raj-gier-room');
+    setRoom(null);
+    setRoomCode(null);
+    setPlayerId(null);
+  }, [socket, sessionId, roomCode, clearGameOver]);
+
   return (
     <GameContext.Provider
       value={{
@@ -210,6 +222,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         joinRoom,
         selectGame,
         backToLobby,
+        leaveRoom,
         requestGameState,
       }}
     >

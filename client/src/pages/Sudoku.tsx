@@ -49,7 +49,11 @@ export default function Sudoku() {
   const isHost = room?.hostId === playerId;
 
   useEffect(() => {
-    if (!room || room.game !== 'sudoku') {
+    if (!room) {
+      navigate('/');
+      return;
+    }
+    if (room.game !== 'sudoku') {
       navigate('/lobby');
     }
   }, [room, navigate]);

@@ -63,7 +63,11 @@ export default function Crossword() {
   const isHost = room?.hostId === playerId;
 
   useEffect(() => {
-    if (!room || room.game !== 'crossword') {
+    if (!room) {
+      navigate('/');
+      return;
+    }
+    if (room.game !== 'crossword') {
       navigate('/lobby');
     }
   }, [room, navigate]);

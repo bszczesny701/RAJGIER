@@ -503,6 +503,46 @@ io.on('connection', (socket) => {
     resetToLobby(room);
   });
 
+  socket.on('leaveRoom', ({ sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player) return;
+
+    const wasPlaying = room.status === 'playing';
+    const remaining = room.players.filter((p) => p.id !== player.id);
+
+    room.players = remaining;
+    socket.leave(code);
+
+    if (remaining.length === 0) {
+      rooms.delete(room.code);
+      currentRoom = null;
+      return;
+    }
+
+    if (room.hostId === player.id) {
+      room.hostId = remaining[0].id;
+    }
+
+    if (wasPlaying) {
+      io.to(room.code).emit('gameOver', {
+        winnerId: remaining[0].id,
+        winnerName: remaining[0].name,
+        game: room.game,
+        forfeit: true,
+      });
+      resetToLobby(room);
+    } else {
+      emitRoomUpdate(room);
+    }
+
+    if (player.socketId === socket.id) {
+      currentRoom = null;
+    }
+  });
+
   socket.on('rejoinRoom', ({ roomCode, playerName, sessionId }, callback) => {
     const { room, player } = resolvePlayerContext(socket, null, {
       roomCode,

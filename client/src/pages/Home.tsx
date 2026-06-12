@@ -4,7 +4,7 @@ import { useGame } from '../context/GameContext';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { playerName, setPlayerName, createRoom, joinRoom, connected, error, clearError } = useGame();
+  const { playerName, setPlayerName, createRoom, joinRoom, connected, error, clearError, room, roomCode } = useGame();
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'menu' | 'join'>('menu');
@@ -44,6 +44,17 @@ export default function Home() {
         <div className="error-banner">
           <span>{error}</span>
           <button type="button" onClick={clearError} aria-label="Zamknij">×</button>
+        </div>
+      )}
+
+      {room && roomCode && (
+        <div className="card home-room-banner" style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
+            Jesteś w pokoju <strong style={{ color: 'var(--accent-gold)' }}>{roomCode}</strong>
+          </p>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/lobby')}>
+            → Wróć do pokoju
+          </button>
         </div>
       )}
 

@@ -36,7 +36,11 @@ export default function WordSearch() {
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!room || room.game !== 'wordsearch') {
+    if (!room) {
+      navigate('/');
+      return;
+    }
+    if (room.game !== 'wordsearch') {
       navigate('/lobby');
     }
   }, [room, navigate]);
