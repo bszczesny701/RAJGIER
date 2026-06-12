@@ -109,7 +109,7 @@ export default function Home() {
 
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ fontSize: '0.95rem', marginBottom: 12, color: 'var(--text-secondary)' }}>Dostępne gry</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
           <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
             <span style={{ fontSize: '1.5rem' }}>🚢</span>
             <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Statki</p>
@@ -121,6 +121,10 @@ export default function Home() {
           <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
             <span style={{ fontSize: '1.5rem' }}>📝</span>
             <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Krzyżówka</p>
+          </div>
+          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
+            <span style={{ fontSize: '1.5rem' }}>🔢</span>
+            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Sudoku</p>
           </div>
         </div>
       </div>

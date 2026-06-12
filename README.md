@@ -1,6 +1,6 @@
 # RAJ GIER
 
-Prywatna aplikacja PWA z grami dla dwojga — **Statki**, **Wykreślanka** i **Krzyżówka**.
+Prywatna aplikacja PWA z grami dla dwojga — **Statki**, **Wykreślanka**, **Krzyżówka** i **Sudoku**.
 
 ## Gra z daleka (zalecane)
 
@@ -33,6 +33,7 @@ npm run dev
 | **Statki** | Ustaw flote, zatop statki rywala |
 | **Wykreślanka** | Kto pierwszy znajdzie slowa na planszy |
 | **Krzyzowka** | Ta sama krzyzowka — kto wiecej hasel odgadnie |
+| **Sudoku** | Ta sama plansza — kto szybciej uklada |
 
 ## PWA na telefonie
 

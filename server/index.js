@@ -22,6 +22,11 @@ const {
   getPublicCrosswordState,
   checkWinner,
 } = require('./games/crossword');
+const {
+  createSudokuState,
+  trySubmitSudoku,
+  getPublicSudokuState,
+} = require('./games/sudoku');
 
 const app = express();
 app.use(cors());
@@ -137,6 +142,15 @@ function buildCrosswordPayload(room, playerId) {
   };
 }
 
+function buildSudokuPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  return {
+    ...getPublicSudokuState(room.gameState, playerId),
+    opponentName: room.players.find((p) => p.id !== playerId)?.name,
+    myName: player?.name,
+  };
+}
+
 function sendBattleshipState(room, player, targetSocket) {
   targetSocket.emit('battleshipUpdate', buildBattleshipPayload(room, player.id));
 }
@@ -147,6 +161,10 @@ function sendWordSearchState(room, player, targetSocket) {
 
 function sendCrosswordState(room, player, targetSocket) {
   targetSocket.emit('crosswordUpdate', buildCrosswordPayload(room, player.id));
+}
+
+function sendSudokuState(room, player, targetSocket) {
+  targetSocket.emit('sudokuUpdate', buildSudokuPayload(room, player.id));
 }
 
 function emitRoomUpdate(room) {
@@ -174,6 +192,13 @@ function emitCrosswordUpdate(room) {
   }
 }
 
+function emitSudokuUpdate(room) {
+  for (const player of room.players) {
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('sudokuUpdate', buildSudokuPayload(room, player.id));
+  }
+}
+
 function startGame(room, game) {
   room.game = game;
   room.status = 'playing';
@@ -193,6 +218,9 @@ function startGame(room, game) {
       room.gameState.scores[player.id] = 0;
     }
     emitCrosswordUpdate(room);
+  } else if (game === 'sudoku') {
+    room.gameState = createSudokuState();
+    emitSudokuUpdate(room);
   }
 
   emitRoomUpdate(room);
@@ -290,7 +318,7 @@ io.on('connection', (socket) => {
     });
     if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
-    if (!['battleship', 'wordsearch', 'crossword'].includes(game)) return;
+    if (!['battleship', 'wordsearch', 'crossword', 'sudoku'].includes(game)) return;
 
     currentRoom = code;
     startGame(room, game);
@@ -417,6 +445,34 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('submitSudoku', ({ grid, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'sudoku') return;
+    currentRoom = code;
+
+    const result = trySubmitSudoku(room.gameState, player.id, grid);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitSudokuUpdate(room);
+
+    if (room.gameState.winner) {
+      const winner = room.players.find((p) => p.id === room.gameState.winner);
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner,
+        winnerName: winner?.name,
+        game: 'sudoku',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
+    }
+  });
+
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
@@ -432,6 +488,8 @@ io.on('connection', (socket) => {
       sendWordSearchState(room, player, socket);
     } else if (room.game === 'crossword') {
       sendCrosswordState(room, player, socket);
+    } else if (room.game === 'sudoku') {
+      sendSudokuState(room, player, socket);
     }
   });
 
@@ -466,6 +524,8 @@ io.on('connection', (socket) => {
       sendWordSearchState(room, player, socket);
     } else if (room.game === 'crossword' && room.gameState) {
       sendCrosswordState(room, player, socket);
+    } else if (room.game === 'sudoku' && room.gameState) {
+      sendSudokuState(room, player, socket);
     }
   });
 

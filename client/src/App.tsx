@@ -5,6 +5,7 @@ import Lobby from './pages/Lobby';
 import Battleship from './pages/Battleship';
 import WordSearch from './pages/WordSearch';
 import Crossword from './pages/Crossword';
+import Sudoku from './pages/Sudoku';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/statki" element={<Battleship />} />
           <Route path="/wykreslanka" element={<WordSearch />} />
           <Route path="/krzyzowka" element={<Crossword />} />
+          <Route path="/sudoku" element={<Sudoku />} />
         </Routes>
       </div>
     </GameProvider>

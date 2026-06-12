@@ -31,6 +31,8 @@ export default function Lobby() {
       navigate('/wykreslanka');
     } else if (room?.status === 'playing' && room.game === 'crossword') {
       navigate('/krzyzowka');
+    } else if (room?.status === 'playing' && room.game === 'sudoku') {
+      navigate('/sudoku');
     }
   }, [room, navigate]);
 
@@ -111,6 +113,15 @@ export default function Lobby() {
               <h3>Krzyżówka</h3>
               <p>Kto więcej haseł odgadnie</p>
             </button>
+            <button
+              type="button"
+              className="game-option"
+              onClick={() => selectGame('sudoku')}
+            >
+              <span className="emoji">🔢</span>
+              <h3>Sudoku</h3>
+              <p>Kto szybciej ułoży</p>
+            </button>
           </div>
         </div>
       )}
@@ -154,7 +165,9 @@ export default function Lobby() {
                     ? 'Wszystkie statki zatopione!'
                     : gameOver.game === 'crossword'
                       ? 'Rozwiązałeś więcej haseł!'
-                      : 'Znalazłeś więcej słów!'}
+                      : gameOver.game === 'sudoku'
+                        ? 'Ułożyłeś sudoku szybciej!'
+                        : 'Znalazłeś więcej słów!'}
             </p>
             {isHost ? (
               <button className="btn btn-primary" onClick={() => { clearGameOver(); backToLobby(); }}>
