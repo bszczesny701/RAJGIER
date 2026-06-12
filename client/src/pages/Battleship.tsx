@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import FleetPanel from '../components/battleship/FleetPanel';
 import ShipSvg from '../components/battleship/ShipSvg';
+import ShipCellVisual from '../components/battleship/ShipCellVisual';
 import {
   getShipSegmentInfo,
   shipSegmentClass,
@@ -235,6 +236,10 @@ export default function Battleship() {
   const previewCells = hoverCell ? getPreviewCells(hoverCell.row, hoverCell.col) : null;
   const previewValid = isPreviewValid(previewCells);
 
+  const previewShip = previewCells && selectedShip
+    ? [{ id: 'preview', size: selectedShip.size, cells: previewCells }]
+    : null;
+
   if (!state) {
     return (
       <div className="page waiting-text">
@@ -316,13 +321,15 @@ export default function Battleship() {
               const col = i % gridSize;
               const placed = placedShips.some((s) => s.cells.some((c) => c.row === row && c.col === col));
               const isPreview = previewCells?.some((c) => c.row === row && c.col === col);
+              const segment = placed
+                ? getShipSegmentInfo(null, placedShips, row, col)
+                : isPreview
+                  ? getShipSegmentInfo(null, previewShip, row, col)
+                  : null;
 
               let className = 'grid-cell water';
-              if (placed) {
-                const segment = getShipSegmentInfo(null, placedShips, row, col);
-                className = segment ? `grid-cell ${shipSegmentClass(segment)}` : 'grid-cell ship';
-              }
-              if (isPreview) className += previewValid ? ' preview-ship' : ' preview-invalid';
+              if (segment) className = `grid-cell ${shipSegmentClass(segment)}`;
+              if (isPreview && !placed) className += previewValid ? ' preview-ship' : ' preview-invalid';
 
               return (
                 <button
@@ -332,7 +339,7 @@ export default function Battleship() {
                   aria-label={`Pole ${row + 1}, ${col + 1}`}
                   onClick={() => handlePlaceShip(row, col)}
                 >
-                  {placed && <span className="ship-cell-inner" aria-hidden="true" />}
+                  {segment && <ShipCellVisual segment={segment} preview={isPreview && !placed} />}
                 </button>
               );
             })}
@@ -376,7 +383,7 @@ export default function Battleship() {
 
                 return (
                   <div key={`${ri}-${ci}`} className={className}>
-                    {segment && <span className="ship-cell-inner" aria-hidden="true" />}
+                    {segment && <ShipCellVisual segment={segment} />}
                     <CellContent hit={cell.hit && !!cell.ship} miss={cell.hit && !cell.ship} showHit />
                   </div>
                 );
@@ -415,7 +422,7 @@ export default function Battleship() {
                     aria-label={`Strzał ${ri + 1}, ${ci + 1}${cell.sunk ? ' — statek zatopiony' : ''}`}
                     onClick={() => handleShoot(ri, ci)}
                   >
-                    {segment && <span className="ship-cell-inner" aria-hidden="true" />}
+                    {segment && <ShipCellVisual segment={segment} />}
                     {!segment && <CellContent hit={cell.hit} miss={cell.miss} showHit />}
                     {segment?.sunk && (segment.segment === 'start' || segment.segment === 'single') && (
                       <span className="cell-marker sunk-marker">☠️</span>
