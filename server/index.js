@@ -27,6 +27,15 @@ const {
   trySubmitSudoku,
   getPublicSudokuState,
 } = require('./games/sudoku');
+const {
+  createUnosState,
+  playCard,
+  finalizeWildColor,
+  drawCard,
+  callUnos,
+  passTurn,
+  getPublicUnosState,
+} = require('./games/unos');
 
 const app = express();
 app.use(cors());
@@ -151,6 +160,16 @@ function buildSudokuPayload(room, playerId) {
   };
 }
 
+function buildUnosPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  const opponentId = getOpponent(room, playerId);
+  return {
+    ...getPublicUnosState(room.gameState, playerId, opponentId),
+    opponentName: room.players.find((p) => p.id === opponentId)?.name,
+    myName: player?.name,
+  };
+}
+
 function sendBattleshipState(room, player, targetSocket) {
   targetSocket.emit('battleshipUpdate', buildBattleshipPayload(room, player.id));
 }
@@ -165,6 +184,10 @@ function sendCrosswordState(room, player, targetSocket) {
 
 function sendSudokuState(room, player, targetSocket) {
   targetSocket.emit('sudokuUpdate', buildSudokuPayload(room, player.id));
+}
+
+function sendUnosState(room, player, targetSocket) {
+  targetSocket.emit('unosUpdate', buildUnosPayload(room, player.id));
 }
 
 function emitRoomUpdate(room) {
@@ -199,6 +222,13 @@ function emitSudokuUpdate(room) {
   }
 }
 
+function emitUnosUpdate(room) {
+  for (const player of room.players) {
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('unosUpdate', buildUnosPayload(room, player.id));
+  }
+}
+
 function startGame(room, game) {
   room.game = game;
   room.status = 'playing';
@@ -221,6 +251,9 @@ function startGame(room, game) {
   } else if (game === 'sudoku') {
     room.gameState = createSudokuState();
     emitSudokuUpdate(room);
+  } else if (game === 'unos') {
+    room.gameState = createUnosState(room.players.map((p) => p.id));
+    emitUnosUpdate(room);
   }
 
   emitRoomUpdate(room);
@@ -318,7 +351,7 @@ io.on('connection', (socket) => {
     });
     if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
-    if (!['battleship', 'wordsearch', 'crossword', 'sudoku'].includes(game)) return;
+    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos'].includes(game)) return;
 
     currentRoom = code;
     startGame(room, game);
@@ -473,6 +506,121 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('unosPlayCard', ({ cardId, color, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'unos') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = playCard(room.gameState, player.id, cardId, color, playerIds);
+
+    if (!result.valid) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitUnosUpdate(room);
+
+    if (room.gameState.winner) {
+      const winner = room.players.find((p) => p.id === room.gameState.winner);
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner,
+        winnerName: winner?.name,
+        game: 'unos',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
+    }
+  });
+
+  socket.on('unosChooseColor', ({ color, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'unos') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = finalizeWildColor(room.gameState, player.id, color, playerIds);
+
+    if (!result.valid) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitUnosUpdate(room);
+
+    if (room.gameState.winner) {
+      const winner = room.players.find((p) => p.id === room.gameState.winner);
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner,
+        winnerName: winner?.name,
+        game: 'unos',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
+    }
+  });
+
+  socket.on('unosDrawCard', ({ sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'unos') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = drawCard(room.gameState, player.id, playerIds);
+
+    if (!result.valid) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitUnosUpdate(room);
+  });
+
+  socket.on('unosCallUnos', ({ sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'unos') return;
+    currentRoom = code;
+
+    const result = callUnos(room.gameState, player.id);
+    if (!result.valid) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitUnosUpdate(room);
+  });
+
+  socket.on('unosPassTurn', ({ sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'unos') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = passTurn(room.gameState, player.id, playerIds);
+
+    if (!result.valid) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitUnosUpdate(room);
+  });
+
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
@@ -490,6 +638,8 @@ io.on('connection', (socket) => {
       sendCrosswordState(room, player, socket);
     } else if (room.game === 'sudoku') {
       sendSudokuState(room, player, socket);
+    } else if (room.game === 'unos') {
+      sendUnosState(room, player, socket);
     }
   });
 
@@ -566,6 +716,8 @@ io.on('connection', (socket) => {
       sendCrosswordState(room, player, socket);
     } else if (room.game === 'sudoku' && room.gameState) {
       sendSudokuState(room, player, socket);
+    } else if (room.game === 'unos' && room.gameState) {
+      sendUnosState(room, player, socket);
     }
   });
 

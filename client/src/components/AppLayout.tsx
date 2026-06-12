@@ -9,6 +9,7 @@ import Battleship from '../pages/Battleship';
 import WordSearch from '../pages/WordSearch';
 import Crossword from '../pages/Crossword';
 import Sudoku from '../pages/Sudoku';
+import Unos from '../pages/Unos';
 
 function GameAutoStart() {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export default function AppLayout() {
           <Route path="/wykreslanka" element={<WordSearch />} />
           <Route path="/krzyzowka" element={<Crossword />} />
           <Route path="/sudoku" element={<Sudoku />} />
+          <Route path="/unos" element={<Unos />} />
         </Routes>
       </main>
     </div>
