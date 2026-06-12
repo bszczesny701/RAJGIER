@@ -16,6 +16,12 @@ const {
   tryFindWord,
   getPublicWordSearchState,
 } = require('./games/wordsearch');
+const {
+  createCrosswordState,
+  trySubmitWord,
+  getPublicCrosswordState,
+  checkWinner,
+} = require('./games/crossword');
 
 const app = express();
 app.use(cors());
@@ -56,80 +62,116 @@ function getOpponent(room, playerId) {
   return room.players.find((p) => p.id !== playerId)?.id;
 }
 
+function findPlayer(room, { sessionId, playerName, socketId }) {
+  if (!room) return null;
+  if (sessionId) {
+    const bySession = room.players.find((p) => p.id === sessionId);
+    if (bySession) return bySession;
+  }
+  if (playerName) {
+    const name = playerName.trim().slice(0, 20);
+    const byName = room.players.find((p) => p.name === name);
+    if (byName) return byName;
+  }
+  if (socketId) {
+    return room.players.find((p) => p.socketId === socketId) || null;
+  }
+  return null;
+}
+
+function bindSocketToRoom(socket, room, player) {
+  player.socketId = socket.id;
+  socket.join(room.code);
+  return room.code;
+}
+
+function getRoomForSocket(socket, currentRoom, roomCode) {
+  const code = (currentRoom || roomCode || '').toString().trim().toUpperCase();
+  if (!code) return null;
+  return rooms.get(code) || null;
+}
+
+function resolvePlayerContext(socket, currentRoom, payload = {}) {
+  const room = getRoomForSocket(socket, currentRoom, payload.roomCode);
+  if (!room) return { room: null, player: null, roomCode: null };
+
+  const player = findPlayer(room, {
+    sessionId: payload.sessionId,
+    playerName: payload.playerName,
+    socketId: socket.id,
+  });
+
+  if (!player) return { room, player: null, roomCode: room.code };
+
+  const roomCode = bindSocketToRoom(socket, room, player);
+  return { room, player, roomCode };
+}
+
+function buildBattleshipPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  const opponentId = getOpponent(room, playerId);
+  return {
+    ...getPublicBattleshipState(room.gameState, playerId, opponentId),
+    opponentName: room.players.find((p) => p.id === opponentId)?.name,
+    myName: player?.name,
+  };
+}
+
+function buildWordSearchPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  return {
+    ...getPublicWordSearchState(room.gameState, playerId),
+    opponentName: room.players.find((p) => p.id !== playerId)?.name,
+    myName: player?.name,
+    myId: playerId,
+  };
+}
+
+function buildCrosswordPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  return {
+    ...getPublicCrosswordState(room.gameState, playerId),
+    opponentName: room.players.find((p) => p.id !== playerId)?.name,
+    myName: player?.name,
+    myId: playerId,
+  };
+}
+
+function sendBattleshipState(room, player, targetSocket) {
+  targetSocket.emit('battleshipUpdate', buildBattleshipPayload(room, player.id));
+}
+
+function sendWordSearchState(room, player, targetSocket) {
+  targetSocket.emit('wordsearchUpdate', buildWordSearchPayload(room, player.id));
+}
+
+function sendCrosswordState(room, player, targetSocket) {
+  targetSocket.emit('crosswordUpdate', buildCrosswordPayload(room, player.id));
+}
+
 function emitRoomUpdate(room) {
   io.to(room.code).emit('roomUpdate', getRoomPublic(room));
 }
 
-function emitBattleshipUpdateToPlayer(room, playerId) {
-  const player = room.players.find((p) => p.id === playerId);
-  if (!player) return;
-  const opponentId = getOpponent(room, playerId);
-  io.to(playerId).emit('battleshipUpdate', {
-    ...getPublicBattleshipState(room.gameState, playerId, opponentId),
-    opponentName: room.players.find((p) => p.id === opponentId)?.name,
-    myName: player.name,
-  });
-}
-
-function emitWordSearchUpdateToPlayer(room, playerId) {
-  const player = room.players.find((p) => p.id === playerId);
-  if (!player) return;
-  io.to(playerId).emit('wordsearchUpdate', {
-    ...getPublicWordSearchState(room.gameState, playerId),
-    opponentName: room.players.find((p) => p.id !== playerId)?.name,
-    myName: player.name,
-    myId: playerId,
-  });
-}
-
 function emitBattleshipUpdate(room) {
   for (const player of room.players) {
-    emitBattleshipUpdateToPlayer(room, player.id);
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('battleshipUpdate', buildBattleshipPayload(room, player.id));
   }
 }
 
 function emitWordSearchUpdate(room) {
   for (const player of room.players) {
-    emitWordSearchUpdateToPlayer(room, player.id);
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('wordsearchUpdate', buildWordSearchPayload(room, player.id));
   }
 }
 
-function migratePlayerId(room, oldId, newId) {
-  if (oldId === newId || !room.gameState) return;
-
-  if (room.game === 'battleship') {
-    const gs = room.gameState;
-    if (gs.boards[oldId]) {
-      gs.boards[newId] = gs.boards[oldId];
-      delete gs.boards[oldId];
-    }
-    if (gs.enemyView[oldId]) {
-      gs.enemyView[newId] = gs.enemyView[oldId];
-      delete gs.enemyView[oldId];
-    }
-    if (gs.placementReady[oldId]) {
-      gs.placementReady[newId] = gs.placementReady[oldId];
-      delete gs.placementReady[oldId];
-    }
-    if (gs.currentTurn === oldId) gs.currentTurn = newId;
-    if (gs.winner === oldId) gs.winner = newId;
+function emitCrosswordUpdate(room) {
+  for (const player of room.players) {
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('crosswordUpdate', buildCrosswordPayload(room, player.id));
   }
-
-  if (room.game === 'wordsearch') {
-    const gs = room.gameState;
-    if (gs.scores[oldId] !== undefined) {
-      gs.scores[newId] = gs.scores[oldId];
-      delete gs.scores[oldId];
-    }
-    for (const word of Object.keys(gs.foundBy)) {
-      if (gs.foundBy[word] === oldId) gs.foundBy[word] = newId;
-    }
-    if (gs.winner === oldId) gs.winner = newId;
-  }
-
-  const player = room.players.find((p) => p.id === oldId);
-  if (player) player.id = newId;
-  if (room.hostId === oldId) room.hostId = newId;
 }
 
 function startGame(room, game) {
@@ -145,6 +187,12 @@ function startGame(room, game) {
       room.gameState.scores[player.id] = 0;
     }
     emitWordSearchUpdate(room);
+  } else if (game === 'crossword') {
+    room.gameState = createCrosswordState();
+    for (const player of room.players) {
+      room.gameState.scores[player.id] = 0;
+    }
+    emitCrosswordUpdate(room);
   }
 
   emitRoomUpdate(room);
@@ -169,33 +217,50 @@ if (require('fs').existsSync(clientDist)) {
 io.on('connection', (socket) => {
   let currentRoom = null;
 
-  socket.on('createRoom', ({ playerName }, callback) => {
+  socket.on('createRoom', ({ playerName, sessionId }, callback) => {
+    if (!sessionId) {
+      callback?.({ success: false, error: 'Brak identyfikatora sesji' });
+      return;
+    }
+
     const name = (playerName || 'Gracz').trim().slice(0, 20) || 'Gracz';
     const code = generateRoomCode();
 
     const room = {
       code,
-      players: [{ id: socket.id, name }],
-      hostId: socket.id,
+      players: [{ id: sessionId, name, socketId: socket.id }],
+      hostId: sessionId,
       status: 'waiting',
       game: null,
       gameState: null,
     };
 
     rooms.set(code, room);
-    currentRoom = code;
-    socket.join(code);
+    currentRoom = bindSocketToRoom(socket, room, room.players[0]);
 
-    callback?.({ success: true, roomCode: code, playerId: socket.id });
+    callback?.({ success: true, roomCode: code, playerId: sessionId });
     emitRoomUpdate(room);
   });
 
-  socket.on('joinRoom', ({ roomCode, playerName }, callback) => {
+  socket.on('joinRoom', ({ roomCode, playerName, sessionId }, callback) => {
+    if (!sessionId) {
+      callback?.({ success: false, error: 'Brak identyfikatora sesji' });
+      return;
+    }
+
     const code = (roomCode || '').trim().toUpperCase();
     const room = rooms.get(code);
 
     if (!room) {
       callback?.({ success: false, error: 'Nie znaleziono pokoju' });
+      return;
+    }
+
+    const existing = findPlayer(room, { sessionId, playerName });
+    if (existing) {
+      currentRoom = bindSocketToRoom(socket, room, existing);
+      callback?.({ success: true, roomCode: code, playerId: existing.id });
+      emitRoomUpdate(room);
       return;
     }
 
@@ -210,28 +275,36 @@ io.on('connection', (socket) => {
     }
 
     const name = (playerName || 'Gracz').trim().slice(0, 20) || 'Gracz';
-    room.players.push({ id: socket.id, name });
-    currentRoom = code;
-    socket.join(code);
+    const player = { id: sessionId, name, socketId: socket.id };
+    room.players.push(player);
+    currentRoom = bindSocketToRoom(socket, room, player);
 
-    callback?.({ success: true, roomCode: code, playerId: socket.id });
+    callback?.({ success: true, roomCode: code, playerId: sessionId });
     emitRoomUpdate(room);
   });
 
-  socket.on('selectGame', ({ game }) => {
-    const room = rooms.get(currentRoom);
-    if (!room || room.hostId !== socket.id) return;
+  socket.on('selectGame', ({ game, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
-    if (!['battleship', 'wordsearch'].includes(game)) return;
+    if (!['battleship', 'wordsearch', 'crossword'].includes(game)) return;
 
+    currentRoom = code;
     startGame(room, game);
   });
 
-  socket.on('placeShips', ({ ships }) => {
-    const room = rooms.get(currentRoom);
-    if (!room || room.game !== 'battleship') return;
+  socket.on('placeShips', ({ ships, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'battleship') return;
+    currentRoom = code;
 
-    const result = placeShipsOnBoard(room.gameState, socket.id, ships);
+    const result = placeShipsOnBoard(room.gameState, player.id, ships);
     if (!result.valid) {
       socket.emit('error', { message: result.reason });
       return;
@@ -245,12 +318,16 @@ io.on('connection', (socket) => {
     emitBattleshipUpdate(room);
   });
 
-  socket.on('shoot', ({ row, col }) => {
-    const room = rooms.get(currentRoom);
-    if (!room || room.game !== 'battleship') return;
+  socket.on('shoot', ({ row, col, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'battleship') return;
+    currentRoom = code;
 
-    const opponentId = getOpponent(room, socket.id);
-    const result = shoot(room.gameState, socket.id, row, col, opponentId);
+    const opponentId = getOpponent(room, player.id);
+    const result = shoot(room.gameState, player.id, row, col, opponentId);
 
     if (!result.valid) {
       socket.emit('error', { message: result.reason });
@@ -271,11 +348,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('findWord', ({ cells }) => {
-    const room = rooms.get(currentRoom);
-    if (!room || room.game !== 'wordsearch') return;
+  socket.on('findWord', ({ cells, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'wordsearch') return;
+    currentRoom = code;
 
-    const result = tryFindWord(room.gameState, socket.id, cells);
+    const result = tryFindWord(room.gameState, player.id, cells);
     if (!result.success) {
       socket.emit('error', { message: result.reason });
       return;
@@ -301,53 +382,90 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('requestGameState', () => {
-    const room = rooms.get(currentRoom);
-    if (!room || room.status !== 'playing' || !room.gameState) return;
+  socket.on('submitCrossword', ({ wordId, answer, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'crossword') return;
+    currentRoom = code;
 
-    if (room.game === 'battleship') {
-      emitBattleshipUpdateToPlayer(room, socket.id);
-    } else if (room.game === 'wordsearch') {
-      emitWordSearchUpdateToPlayer(room, socket.id);
+    const result = trySubmitWord(room.gameState, player.id, wordId, answer);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    checkWinner(room.gameState, room.players.map((p) => p.id));
+    emitCrosswordUpdate(room);
+
+    if (room.gameState.winner) {
+      let winnerName;
+      if (room.gameState.winner === 'draw') {
+        winnerName = null;
+      } else {
+        winnerName = room.players.find((p) => p.id === room.gameState.winner)?.name;
+      }
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner === 'draw' ? 'draw' : room.gameState.winner,
+        winnerName,
+        game: 'crossword',
+        draw: room.gameState.winner === 'draw',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
     }
   });
 
-  socket.on('backToLobby', () => {
-    const room = rooms.get(currentRoom);
-    if (!room || room.hostId !== socket.id) return;
+  socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+      playerName,
+    });
+    if (!room || !player || room.status !== 'playing' || !room.gameState) return;
+    currentRoom = code;
+
+    if (room.game === 'battleship') {
+      sendBattleshipState(room, player, socket);
+    } else if (room.game === 'wordsearch') {
+      sendWordSearchState(room, player, socket);
+    } else if (room.game === 'crossword') {
+      sendCrosswordState(room, player, socket);
+    }
+  });
+
+  socket.on('backToLobby', ({ sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.hostId !== player.id) return;
+    currentRoom = code;
     resetToLobby(room);
   });
 
-  socket.on('rejoinRoom', ({ roomCode, playerName }, callback) => {
-    const code = (roomCode || '').trim().toUpperCase();
-    const room = rooms.get(code);
-    if (!room) {
+  socket.on('rejoinRoom', ({ roomCode, playerName, sessionId }, callback) => {
+    const { room, player } = resolvePlayerContext(socket, null, {
+      roomCode,
+      playerName,
+      sessionId,
+    });
+
+    if (!room || !player) {
       callback?.({ success: false });
       return;
     }
 
-    const name = (playerName || '').trim().slice(0, 20);
-    const existing = room.players.find((p) => p.name === name)
-      || room.players.find((p) => p.id === socket.id);
-
-    if (!existing) {
-      callback?.({ success: false });
-      return;
-    }
-
-    const oldId = existing.id;
-    if (oldId !== socket.id) {
-      migratePlayerId(room, oldId, socket.id);
-    }
-
-    currentRoom = code;
-    socket.join(code);
-    callback?.({ success: true, room: getRoomPublic(room), playerId: socket.id });
+    currentRoom = bindSocketToRoom(socket, room, player);
+    callback?.({ success: true, room: getRoomPublic(room), playerId: player.id });
 
     if (room.game === 'battleship' && room.gameState) {
-      emitBattleshipUpdateToPlayer(room, socket.id);
+      sendBattleshipState(room, player, socket);
     } else if (room.game === 'wordsearch' && room.gameState) {
-      emitWordSearchUpdateToPlayer(room, socket.id);
+      sendWordSearchState(room, player, socket);
+    } else if (room.game === 'crossword' && room.gameState) {
+      sendCrosswordState(room, player, socket);
     }
   });
 
@@ -355,25 +473,9 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoom);
     if (!room) return;
 
-    room.players = room.players.filter((p) => p.id !== socket.id);
-
-    if (room.players.length === 0) {
-      rooms.delete(room.code);
-      return;
-    }
-
-    if (room.hostId === socket.id) {
-      room.hostId = room.players[0].id;
-    }
-
-    if (room.status === 'playing') {
-      room.status = 'finished';
-      io.to(room.code).emit('gameOver', {
-        winnerId: room.players[0].id,
-        winnerName: room.players[0].name,
-        game: room.game,
-        forfeit: true,
-      });
+    const player = room.players.find((p) => p.socketId === socket.id);
+    if (player) {
+      player.socketId = null;
     }
 
     emitRoomUpdate(room);

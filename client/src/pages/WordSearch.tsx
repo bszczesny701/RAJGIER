@@ -27,7 +27,7 @@ interface Cell {
 
 export default function WordSearch() {
   const navigate = useNavigate();
-  const { socket, room, playerId, error, clearError, gameOver, clearGameOver, backToLobby } = useGame();
+  const { socket, room, playerId, sessionId, roomCode, error, clearError, gameOver, clearGameOver, backToLobby, requestGameState } = useGame();
   const [state, setState] = useState<WordSearchState | null>(null);
   const isHost = room?.hostId === playerId;
 
@@ -46,10 +46,10 @@ export default function WordSearch() {
 
     const handler = (data: WordSearchState) => setState(data);
     socket.on('wordsearchUpdate', handler);
-    socket.emit('requestGameState');
+    requestGameState();
 
     return () => { socket.off('wordsearchUpdate', handler); };
-  }, [socket, room]);
+  }, [socket, room, requestGameState]);
 
   const getCellFromPoint = useCallback((clientX: number, clientY: number): Cell | null => {
     const el = document.elementFromPoint(clientX, clientY);
@@ -104,7 +104,7 @@ export default function WordSearch() {
       return;
     }
 
-    socket.emit('findWord', { cells: selection });
+    socket.emit('findWord', { cells: selection, sessionId, roomCode });
     setSelecting(false);
     setSelection([]);
   };

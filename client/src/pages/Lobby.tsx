@@ -29,6 +29,8 @@ export default function Lobby() {
       navigate('/statki');
     } else if (room?.status === 'playing' && room.game === 'wordsearch') {
       navigate('/wykreslanka');
+    } else if (room?.status === 'playing' && room.game === 'crossword') {
+      navigate('/krzyzowka');
     }
   }, [room, navigate]);
 
@@ -100,6 +102,15 @@ export default function Lobby() {
               <h3>Wykreślanka</h3>
               <p>Kto pierwszy znajdzie słowa</p>
             </button>
+            <button
+              type="button"
+              className="game-option"
+              onClick={() => selectGame('crossword')}
+            >
+              <span className="emoji">📝</span>
+              <h3>Krzyżówka</h3>
+              <p>Kto więcej haseł odgadnie</p>
+            </button>
           </div>
         </div>
       )}
@@ -141,7 +152,9 @@ export default function Lobby() {
                   ? 'Macie tyle samo punktów!'
                   : gameOver.game === 'battleship'
                     ? 'Wszystkie statki zatopione!'
-                    : 'Znalazłeś więcej słów!'}
+                    : gameOver.game === 'crossword'
+                      ? 'Rozwiązałeś więcej haseł!'
+                      : 'Znalazłeś więcej słów!'}
             </p>
             {isHost ? (
               <button className="btn btn-primary" onClick={() => { clearGameOver(); backToLobby(); }}>

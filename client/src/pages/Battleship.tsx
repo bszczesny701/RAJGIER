@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
@@ -44,9 +44,42 @@ interface BattleshipState {
   opponentName: string;
 }
 
+function BoardGrid({
+  gridSize,
+  className,
+  children,
+}: {
+  gridSize: number;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="board-wrap">
+      <div
+        className={`grid-board battleship-board${className ? ` ${className}` : ''}`}
+        style={{ gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${gridSize}, minmax(0, 1fr))` }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function Battleship() {
   const navigate = useNavigate();
-  const { socket, room, playerId, error, clearError, gameOver, clearGameOver, backToLobby } = useGame();
+  const {
+    socket,
+    room,
+    playerId,
+    sessionId,
+    roomCode,
+    error,
+    clearError,
+    gameOver,
+    clearGameOver,
+    backToLobby,
+    requestGameState,
+  } = useGame();
   const [state, setState] = useState<BattleshipState | null>(null);
   const isHost = room?.hostId === playerId;
 
@@ -66,10 +99,10 @@ export default function Battleship() {
 
     const handler = (data: BattleshipState) => setState(data);
     socket.on('battleshipUpdate', handler);
-    socket.emit('requestGameState');
+    requestGameState();
 
     return () => { socket.off('battleshipUpdate', handler); };
-  }, [socket, room]);
+  }, [socket, room, requestGameState]);
 
   const getPreviewCells = useCallback((row: number, col: number): Cell[] | null => {
     if (!selectedShip || !state) return null;
@@ -100,11 +133,12 @@ export default function Battleship() {
 
     setPlacedShips((prev) => [...prev, { ...selectedShip, cells }]);
     setSelectedShip(null);
+    setHoverCell(null);
   };
 
   const handleConfirmPlacement = () => {
     if (!socket || placedShips.length !== 10) return;
-    socket.emit('placeShips', { ships: placedShips });
+    socket.emit('placeShips', { ships: placedShips, sessionId, roomCode });
   };
 
   const handleShoot = (row: number, col: number) => {
@@ -112,7 +146,7 @@ export default function Battleship() {
     if (state.currentTurn !== playerId) return;
     const cell = state.enemyBoard?.[row]?.[col];
     if (cell?.hit || cell?.miss) return;
-    socket.emit('shoot', { row, col });
+    socket.emit('shoot', { row, col, sessionId, roomCode });
   };
 
   const getAvailableShips = (): { id: string; size: number }[] => {
@@ -162,46 +196,10 @@ export default function Battleship() {
       )}
 
       {state.phase === 'placement' && !state.placementReady && (
-        <>
-          <p className="placement-hint">
-            {selectedShip
-              ? `Tapnij planszę, aby postawić statek (${selectedShip.size})`
-              : 'Wybierz statek poniżej'}
-          </p>
-
-          <p className="board-label">Twoja flota ({placedShips.length}/10)</p>
-          <div
-            className="grid-board battleship-board"
-            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
-          >
-            {Array.from({ length: gridSize * gridSize }, (_, i) => {
-              const row = Math.floor(i / gridSize);
-              const col = i % gridSize;
-              const placed = placedShips.some((s) => s.cells.some((c) => c.row === row && c.col === col));
-              const isPreview = previewCells?.some((c) => c.row === row && c.col === col);
-
-              let className = 'grid-cell water';
-              if (placed) className += ' ship';
-              if (isPreview) className += previewValid ? ' preview-ship' : ' preview-invalid';
-
-              return (
-                <div
-                  key={i}
-                  className={className}
-                  onPointerEnter={() => setHoverCell({ row, col })}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    setHoverCell({ row, col });
-                    handlePlaceShip(row, col);
-                  }}
-                />
-              );
-            })}
-          </div>
-
-          <div className="card" style={{ padding: 16, marginTop: 16 }}>
+        <div className="battleship-placement">
+          <div className="card battleship-controls" style={{ padding: 16 }}>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
-              Wybierz statek do ustawienia
+              Wybierz statek, potem tapnij planszę
             </p>
             <div className="ship-picker">
               {available.map((ship, idx) => (
@@ -225,15 +223,44 @@ export default function Battleship() {
             </div>
           </div>
 
+          <p className="placement-hint">
+            {selectedShip
+              ? `Tapnij pole na planszy (${selectedShip.size}-masztowiec)`
+              : 'Najpierw wybierz statek powyżej'}
+          </p>
+
+          <p className="board-label">Twoja flota ({placedShips.length}/10)</p>
+          <BoardGrid gridSize={gridSize}>
+            {Array.from({ length: gridSize * gridSize }, (_, i) => {
+              const row = Math.floor(i / gridSize);
+              const col = i % gridSize;
+              const placed = placedShips.some((s) => s.cells.some((c) => c.row === row && c.col === col));
+              const isPreview = previewCells?.some((c) => c.row === row && c.col === col);
+
+              let className = 'grid-cell water';
+              if (placed) className += ' ship';
+              if (isPreview) className += previewValid ? ' preview-ship' : ' preview-invalid';
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  className={className}
+                  aria-label={`Pole ${row + 1}, ${col + 1}`}
+                  onClick={() => handlePlaceShip(row, col)}
+                />
+              );
+            })}
+          </BoardGrid>
+
           <button
-            className="btn btn-primary"
-            style={{ marginTop: 16 }}
+            className="btn btn-primary battleship-controls"
             disabled={placedShips.length !== 10}
             onClick={handleConfirmPlacement}
           >
             ✅ Gotowy! ({placedShips.length}/10)
           </button>
-        </>
+        </div>
       )}
 
       {state.phase === 'placement' && state.placementReady && !state.opponentReady && (
@@ -244,12 +271,9 @@ export default function Battleship() {
       )}
 
       {state.phase === 'battle' && (
-        <>
+        <div className="battleship-battle">
           <p className="board-label">Twoja flota</p>
-          <div
-            className="grid-board battleship-board"
-            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, marginBottom: 16 }}
-          >
+          <BoardGrid gridSize={gridSize}>
             {state.myBoard?.flatMap((row, ri) =>
               row.map((cell, ci) => {
                 let className = 'grid-cell water';
@@ -259,33 +283,31 @@ export default function Battleship() {
                 return <div key={`${ri}-${ci}`} className={className} />;
               })
             )}
-          </div>
+          </BoardGrid>
 
           <p className="board-label">Plansza {state.opponentName} — tapnij, aby strzelić!</p>
-          <div
-            className="grid-board battleship-board"
-            style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
-          >
+          <BoardGrid gridSize={gridSize}>
             {state.enemyBoard?.flatMap((row, ri) =>
               row.map((cell, ci) => {
                 let className = 'grid-cell water';
                 if (cell.hit) className += ' hit';
                 if (cell.miss) className += ' miss';
                 if (!cell.hit && !cell.miss && isMyTurn) className += ' clickable';
+
                 return (
-                  <div
+                  <button
                     key={`${ri}-${ci}`}
+                    type="button"
                     className={className}
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      handleShoot(ri, ci);
-                    }}
+                    disabled={!isMyTurn || cell.hit || cell.miss}
+                    aria-label={`Strzał ${ri + 1}, ${ci + 1}`}
+                    onClick={() => handleShoot(ri, ci)}
                   />
                 );
               })
             )}
-          </div>
-        </>
+          </BoardGrid>
+        </div>
       )}
 
       {gameOver && (

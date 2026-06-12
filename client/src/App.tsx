@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import Lobby from './pages/Lobby';
 import Battleship from './pages/Battleship';
 import WordSearch from './pages/WordSearch';
+import Crossword from './pages/Crossword';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/lobby" element={<Lobby />} />
           <Route path="/statki" element={<Battleship />} />
           <Route path="/wykreslanka" element={<WordSearch />} />
+          <Route path="/krzyzowka" element={<Crossword />} />
         </Routes>
       </div>
     </GameProvider>

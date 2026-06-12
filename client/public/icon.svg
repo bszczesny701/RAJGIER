@@ -10,7 +10,7 @@
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="96" fill="url(#bg)"/>
-  <text x="256" y="210" text-anchor="middle" font-size="120" fill="url(#gold)"><®</text>
+  <text x="256" y="210" text-anchor="middle" font-size="120" fill="url(#gold)"><ï¿½</text>
   <text x="256" y="340" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="52" fill="#fff">RAJ</text>
   <text x="256" y="400" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="52" fill="url(#gold)">GIER</text>
 </svg>
