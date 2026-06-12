@@ -24,6 +24,7 @@ interface UnosState {
   playableCardIds: string[];
   canPlayDrawnCardId: string | null;
   needsUnosCall: boolean;
+  unosCalled: boolean;
   mustChooseColor: boolean;
   winner: string | null;
   colors: CardColor[];
@@ -184,6 +185,8 @@ export default function Unos() {
     ? state.colorLabels[state.activeColor] || state.activeColor
     : '—';
 
+  const showUnosModal = state.myHand.length === 1 && state.needsUnosCall && !state.unosCalled;
+
   return (
     <div className="page unos-page">
       <div className="game-header">
@@ -205,6 +208,16 @@ export default function Unos() {
         <span>Talia: {state.deckCount}</span>
         <span>{state.opponentName}: {state.opponentHandCount} kart</span>
       </div>
+
+      {state.myHand.length === 2 && isMyTurn && (
+        <p className="unos-hint">
+          Zostają 2 karty — po zagraniu jednej kliknij <strong>UNOS!</strong>
+        </p>
+      )}
+
+      {state.myHand.length === 1 && state.unosCalled && (
+        <p className="unos-hint unos-hint-success">✓ UNOS zgłoszone!</p>
+      )}
 
       <div className="unos-table">
         <div className="unos-opponent-hand">
@@ -245,7 +258,20 @@ export default function Unos() {
         </div>
       )}
 
-      {state.myHand.length === 1 && (
+      {showUnosModal && (
+        <div className="unos-modal-overlay">
+          <div className="unos-modal">
+            <div className="emoji-big">🃏</div>
+            <h2>Została 1 karta!</h2>
+            <p>Kliknij UNOS!, zanim przeciwnik zagra.</p>
+            <button type="button" className="btn btn-primary unos-call-btn" onClick={callUnos}>
+              🃏 UNOS!
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state.myHand.length === 1 && !showUnosModal && (
         <button
           type="button"
           className="btn btn-primary unos-call-btn"

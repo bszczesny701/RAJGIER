@@ -148,21 +148,27 @@ function applyUnosPenaltyIfNeeded(state, playerId) {
   if (state.needsUnosCall[playerId] && !state.unosCalled[playerId]) {
     state.hands[playerId].push(...drawFromDeck(state, 2));
     state.needsUnosCall[playerId] = false;
+    state.unosCalled[playerId] = false;
     state.lastAction = { type: 'unosPenalty', playerId };
     return true;
   }
-  state.needsUnosCall[playerId] = false;
   return false;
 }
 
+function penalizeForgottenUnos(state, playerIds, actingPlayerId) {
+  const opponentId = playerIds.find((id) => id !== actingPlayerId);
+  if (opponentId) {
+    applyUnosPenaltyIfNeeded(state, opponentId);
+  }
+}
+
 function endTurn(state, playerIds) {
-  applyUnosPenaltyIfNeeded(state, state.currentTurn);
   const opponentId = playerIds.find((id) => id !== state.currentTurn);
   state.currentTurn = opponentId;
 }
 
-function keepTurn(state, playerIds) {
-  applyUnosPenaltyIfNeeded(state, state.currentTurn);
+function keepTurn() {
+  // Gracz zostaje na turze (skip / +2 w grze dla 2 osób)
 }
 
 function checkWinner(state, playerId) {
@@ -185,7 +191,7 @@ function playCard(state, playerId, cardId, chosenColor, playerIds) {
     return { valid: false, reason: 'Nie twój ruch' };
   }
 
-  applyUnosPenaltyIfNeeded(state, playerId);
+  penalizeForgottenUnos(state, playerIds, playerId);
 
   const hand = state.hands[playerId];
   const cardIndex = hand.findIndex((c) => c.id === cardId);
@@ -234,10 +240,10 @@ function playCard(state, playerId, cardId, chosenColor, playerIds) {
     const opponentId = playerIds.find((id) => id !== playerId);
     state.hands[opponentId].push(...drawFromDeck(state, 2));
     state.lastAction = { type: 'draw2', playerId, card, target: opponentId };
-    keepTurn(state, playerIds);
+    keepTurn();
   } else if (card.type === 'skip') {
     state.lastAction = { type: 'skip', playerId, card };
-    keepTurn(state, playerIds);
+    keepTurn();
   } else {
     state.lastAction = { type: 'play', playerId, card };
     endTurn(state, playerIds);
@@ -295,7 +301,7 @@ function drawCard(state, playerId, playerIds) {
     return { valid: false, reason: 'Nie twój ruch' };
   }
 
-  applyUnosPenaltyIfNeeded(state, playerId);
+  penalizeForgottenUnos(state, playerIds, playerId);
 
   const drawn = drawFromDeck(state, 1);
   if (drawn.length === 0) {
@@ -362,6 +368,7 @@ function getPublicUnosState(state, playerId, opponentId) {
     playableCardIds: myHand.filter((c) => cardMatches(state, c)).map((c) => c.id),
     canPlayDrawnCardId: state.pendingDrawPlay[playerId] || null,
     needsUnosCall: !!state.needsUnosCall[playerId],
+    unosCalled: !!state.unosCalled[playerId],
     mustChooseColor: state.phase === 'chooseColor' && state.chooseColorFor === playerId,
     winner: state.winner,
     lastAction: state.lastAction,
