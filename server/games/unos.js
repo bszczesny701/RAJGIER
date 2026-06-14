@@ -59,11 +59,32 @@ function getActiveColor(state) {
 
 function cardMatches(state, card) {
   if (card.type === 'wild') return true;
-  const activeColor = getActiveColor(state);
+
   const top = getTopCard(state);
-  if (!top || !activeColor) return false;
-  if (card.color === activeColor) return true;
-  if (card.type === 'number' && top.type === 'number' && card.value === top.value) return true;
+  if (!top) return false;
+
+  const activeColor = getActiveColor(state);
+
+  // Ta sama cyfra — dowolny kolor
+  if (card.type === 'number' && top.type === 'number') {
+    const cardValue = Number(card.value);
+    const topValue = Number(top.value);
+    if (!Number.isNaN(cardValue) && !Number.isNaN(topValue) && cardValue === topValue) {
+      return true;
+    }
+  }
+
+  // Ten sam typ akcji (skip, +2) — dowolny kolor
+  if (
+    (card.type === 'skip' || card.type === 'draw2')
+    && card.type === top.type
+  ) {
+    return true;
+  }
+
+  // Pasujący kolor aktywny
+  if (activeColor && card.color === activeColor) return true;
+
   return false;
 }
 
@@ -232,7 +253,11 @@ function playCard(state, playerId, cardId, chosenColor, playerIds) {
 
   const card = hand[cardIndex];
   if (!cardMatches(state, card)) {
-    return { valid: false, reason: 'Nie możesz zagrać tej karty' };
+    const top = getTopCard(state);
+    if (top?.type === 'wild') {
+      return { valid: false, reason: 'Na stole jest wild — zagraj kartę w kolorze gry' };
+    }
+    return { valid: false, reason: 'Karta musi pasować kolorem, cyfrą lub symbolem' };
   }
 
   if (card.type === 'wild') {
