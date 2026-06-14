@@ -303,21 +303,46 @@ const ANSWER_LABELS = {
   bad: 'Źle pytanie',
 };
 
-function getPublicCzolkoState(state, playerId, playerNames = {}) {
+function normalizeCzolkoState(state, playerIds = []) {
+  if (!state.playerIds || !state.playerIds.length) {
+    state.playerIds = playerIds.length ? playerIds : Object.keys(state.scores || {});
+  }
+  if (!Array.isArray(state.qaLog)) {
+    state.qaLog = [];
+  }
+  if (!state.phase) {
+    state.phase = state.pendingQuestion ? 'answering' : 'asking';
+  }
+  if (!state.personPool || !state.personPool.length) {
+    state.personPool = shuffle(PEOPLE);
+  }
+  if (!state.currentPerson) {
+    state.currentPerson = state.personPool.pop();
+  }
+  if (!state.scores) {
+    state.scores = {};
+  }
+  return state;
+}
+
+function getPublicCzolkoState(state, playerId, playerNames = {}, playerIds = []) {
+  normalizeCzolkoState(state, playerIds);
+
   const isGuesser = playerId === state.guesserId;
   const meta = getPersonMeta(state.currentPerson);
+  const person = state.currentPerson;
 
   return {
-    round: state.round,
+    round: state.round || 1,
     guesserId: state.guesserId,
     playerIds: state.playerIds,
     role: isGuesser ? 'guesser' : 'hinter',
-    phase: state.phase,
-    person: !isGuesser ? {
-      name: state.currentPerson.name,
-      age: state.currentPerson.age,
-      nationality: state.currentPerson.nationality,
-      knownFor: state.currentPerson.knownFor,
+    phase: state.phase || 'asking',
+    person: !isGuesser && person ? {
+      name: person.name,
+      age: person.age,
+      nationality: person.nationality,
+      knownFor: person.knownFor,
     } : null,
     pendingQuestion: state.pendingQuestion
       ? {
@@ -327,14 +352,14 @@ function getPublicCzolkoState(state, playerId, playerNames = {}) {
       : null,
     nameLength: meta.nameLength,
     wordCount: meta.wordCount,
-    qaLog: state.qaLog.map((entry) => ({
+    qaLog: (state.qaLog || []).map((entry) => ({
       question: entry.question,
       answer: entry.answer,
       answerLabel: ANSWER_LABELS[entry.answer] || entry.answer,
       answeredByName: playerNames[entry.answeredBy] || 'Gracz',
       time: entry.time,
     })),
-    scores: state.scores,
+    scores: state.scores || {},
     lastResult: state.lastResult
       ? {
           ...state.lastResult,
@@ -344,8 +369,8 @@ function getPublicCzolkoState(state, playerId, playerNames = {}) {
         }
       : null,
     winner: state.winner,
-    winScore: state.winScore,
-    startTime: state.startTime,
+    winScore: state.winScore || WIN_SCORE,
+    startTime: state.startTime || Date.now(),
     playerNames,
     answerLabels: ANSWER_LABELS,
   };

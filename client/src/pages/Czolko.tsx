@@ -74,6 +74,7 @@ export default function Czolko() {
   const [state, setState] = useState<CzolkoState | null>(null);
   const [questionText, setQuestionText] = useState('');
   const [guessText, setGuessText] = useState('');
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const isHost = room?.hostId === playerId;
 
   useEffect(() => {
@@ -81,21 +82,36 @@ export default function Czolko() {
       navigate('/');
       return;
     }
-    if (room.game !== 'czolko') {
+    if (room.status === 'playing' && room.game !== 'czolko') {
       navigate('/lobby');
     }
   }, [room, navigate]);
 
   useEffect(() => {
-    if (!socket || !room) return;
+    if (!socket || !room || room.game !== 'czolko') return;
 
+    setLoadTimedOut(false);
     const handler = (data: CzolkoState) => {
-      setState(data);
+      if (!data) return;
+      setState({
+        ...data,
+        playerIds: data.playerIds ?? [],
+        qaLog: data.qaLog ?? [],
+        playerNames: data.playerNames ?? {},
+        scores: data.scores ?? {},
+        phase: data.phase ?? 'asking',
+      });
+      setLoadTimedOut(false);
     };
     socket.on('czolkoUpdate', handler);
     requestGameState();
 
-    return () => { socket.off('czolkoUpdate', handler); };
+    const timeout = window.setTimeout(() => setLoadTimedOut(true), 10000);
+
+    return () => {
+      socket.off('czolkoUpdate', handler);
+      window.clearTimeout(timeout);
+    };
   }, [socket, room, requestGameState]);
 
   const handleAskQuestion = () => {
@@ -133,17 +149,46 @@ export default function Czolko() {
       <div className="page waiting-text">
         <div className="spinner">🎯</div>
         <p>Ładowanie Czółka...</p>
+        {loadTimedOut && (
+          <>
+            <p style={{ marginTop: 12, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Nie udało się połączyć z grą. Spróbuj odświeżyć stronę.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ marginTop: 16 }}
+              onClick={() => {
+                requestGameState();
+                setLoadTimedOut(false);
+              }}
+            >
+              Odśwież stan gry
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ marginTop: 8 }}
+              onClick={() => navigate('/lobby')}
+            >
+              Wróć do lobby
+            </button>
+          </>
+        )}
       </div>
     );
   }
 
-  const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+  const playerIds = state.playerIds ?? [];
+  const qaLog = state.qaLog ?? [];
+  const playerNames = state.playerNames ?? {};
+  const elapsed = Math.floor((Date.now() - (state.startTime || Date.now())) / 1000);
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
-  const guesserName = state.playerNames[state.guesserId] || 'Gracz';
-  const hinterNames = state.playerIds
+  const guesserName = playerNames[state.guesserId] || 'Gracz';
+  const hinterNames = playerIds
     .filter((id) => id !== state.guesserId)
-    .map((id) => state.playerNames[id] || 'Gracz');
+    .map((id) => playerNames[id] || 'Gracz');
 
   const isMyTurnAsGuesser = state.role === 'guesser' && state.phase === 'asking';
   const canAnswer = state.role === 'hinter' && state.phase === 'answering' && state.pendingQuestion;
@@ -158,7 +203,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Pytania TAK/NIE · tura {state.round} · do {state.winScore} pkt
+        Pytania TAK/NIE · tura {state.round} · {playerIds.length || 2} graczy · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -168,14 +213,14 @@ export default function Czolko() {
         </div>
       )}
 
-      <div className={`czolko-scores-grid cols-${Math.min(state.playerIds.length, 4)}`}>
-        {state.playerIds.map((id) => (
+      <div className={`czolko-scores-grid cols-${Math.min(playerIds.length || 2, 4)}`}>
+        {playerIds.map((id) => (
           <div
             key={id}
             className={`czolko-score-item${id === playerId ? ' me' : ''}${id === state.guesserId ? ' guessing' : ''}`}
           >
-            <div className="label">{state.playerNames[id] || 'Gracz'}</div>
-            <div className="value">{state.scores[id] || 0}</div>
+            <div className="label">{playerNames[id] || 'Gracz'}</div>
+            <div className="value">{state.scores?.[id] || 0}</div>
             {id === state.guesserId && <span className="czolko-score-badge">zgaduje</span>}
           </div>
         ))}
@@ -278,11 +323,11 @@ export default function Czolko() {
 
       <div className="czolko-hints">
         <h3>Historia pytań</h3>
-        {state.qaLog.length === 0 ? (
+        {qaLog.length === 0 ? (
           <p className="czolko-hints-empty">Jeszcze brak pytań w tej turze...</p>
         ) : (
           <ul className="czolko-qa-list">
-            {state.qaLog.map((entry, idx) => (
+            {qaLog.map((entry, idx) => (
               <li key={`${entry.time}-${idx}`} className={`czolko-qa-item answer-${entry.answer}`}>
                 <p className="czolko-qa-question">„{entry.question}"</p>
                 <p className="czolko-qa-answer">

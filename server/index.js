@@ -190,9 +190,10 @@ function buildUnosPayload(room, playerId) {
 
 function buildCzolkoPayload(room, playerId) {
   const player = room.players.find((p) => p.id === playerId);
+  const playerIds = room.players.map((p) => p.id);
   const playerNames = Object.fromEntries(room.players.map((p) => [p.id, p.name]));
   return {
-    ...getPublicCzolkoState(room.gameState, playerId, playerNames),
+    ...getPublicCzolkoState(room.gameState, playerId, playerNames, playerIds),
     myName: player?.name,
     myId: playerId,
   };
