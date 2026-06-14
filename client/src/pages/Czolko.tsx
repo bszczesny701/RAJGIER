@@ -203,7 +203,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        {guesserName} zgaduje · tura {state.round} · do {state.winScore} pkt
+        Ta sama osoba dla wszystkich · teraz zgaduje {guesserName} · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -262,7 +262,7 @@ export default function Czolko() {
       {state.role === 'hinter' && state.person && (
         <div className="czolko-word-card hinter">
           <p className="czolko-word-label">
-            {guesserName} ma tę osobę na czole — odpowiadaj TAK, NIE lub ŹLE PYTANIE
+            Ta sama postać dla wszystkich — odpowiadaj TAK, NIE lub ŹLE PYTANIE
           </p>
           <div className="czolko-word">{state.person.name}</div>
           <div className="czolko-person-info">
@@ -294,7 +294,7 @@ export default function Czolko() {
           <p className="czolko-word-hint">
             {state.phase === 'answering'
               ? 'Czekasz na odpowiedź...'
-              : 'Zadawaj pytania TAK/NIE, aż zgadniesz kto to'}
+              : 'Zadaj jedno pytanie — potem zgaduje następna osoba'}
           </p>
         </div>
       )}
@@ -391,8 +391,8 @@ export default function Czolko() {
       {state.role === 'hinter' && !canAnswer && (
         <p className="czolko-waiting-hint">
           {state.phase === 'answering'
-            ? 'Odpowiedz na pytanie zgadującego...'
-            : `${guesserName} zgaduje tę samą osobę — czekaj na kolejne pytanie`}
+            ? 'Odpowiedz na pytanie — postać zostaje ta sama'
+            : `Czekaj, aż ${guesserName} zada pytanie`}
         </p>
       )}
 

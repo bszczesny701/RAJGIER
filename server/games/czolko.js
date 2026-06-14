@@ -135,7 +135,7 @@ function pickNextPerson(state) {
   state.phase = 'asking';
 }
 
-function advanceGuesser(state, playerIds) {
+function rotateGuesser(state, playerIds) {
   const guesserIdx = playerIds.indexOf(state.guesserId);
   state.guesserId = playerIds[(guesserIdx + 1) % playerIds.length];
   state.round += 1;
@@ -150,12 +150,12 @@ function checkWinner(state) {
   }
 }
 
-function advanceTurn(state, playerIds, lastResult = null) {
+function startNextPerson(state, playerIds, lastResult = null) {
   state.lastResult = lastResult;
   checkWinner(state);
   if (state.winner) return;
 
-  advanceGuesser(state, playerIds);
+  rotateGuesser(state, playerIds);
   pickNextPerson(state);
 }
 
@@ -226,21 +226,20 @@ function tryAnswerQuestion(state, playerId, answer, playerIds) {
   };
   state.qaLog.push(entry);
 
-  const personName = state.currentPerson.name;
   const guesserId = state.pendingQuestion.guesserId;
   const questionText = state.pendingQuestion.text;
 
-  // Po odpowiedzi zgadujący dalej zgaduje tę samą osobę — tura zmienia się dopiero po trafieniu lub pominięciu
+  // Ta sama postać — po odpowiedzi kolejka przechodzi do następnego zgadującego
   state.pendingQuestion = null;
   state.phase = 'asking';
   state.lastResult = {
     type: 'answered',
     answer,
     question: questionText,
-    personName,
     guesserId,
     answeredBy: playerId,
   };
+  rotateGuesser(state, playerIds);
 
   return { success: true, answer };
 }
@@ -260,7 +259,7 @@ function tryGuess(state, playerId, guess, playerIds) {
   state.scores[state.guesserId] = (state.scores[state.guesserId] || 0) + 1;
 
   const personName = state.currentPerson.name;
-  advanceTurn(state, playerIds, {
+  startNextPerson(state, playerIds, {
     type: 'correct',
     name: personName,
     guess: normalizeAnswer(answer),
@@ -276,12 +275,13 @@ function trySkip(state, playerId, playerIds) {
   if (state.phase !== 'asking') return { success: false, reason: 'Najpierw poczekaj na odpowiedź' };
 
   const name = state.currentPerson.name;
-  advanceTurn(state, playerIds, {
+  state.lastResult = {
     type: 'skipped',
     name,
     guesserId: state.guesserId,
     skippedBy: playerId,
-  });
+  };
+  rotateGuesser(state, playerIds);
 
   return { success: true, skipped: true, name };
 }
