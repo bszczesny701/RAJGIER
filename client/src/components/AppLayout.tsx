@@ -10,6 +10,7 @@ import WordSearch from '../pages/WordSearch';
 import Crossword from '../pages/Crossword';
 import Sudoku from '../pages/Sudoku';
 import Unos from '../pages/Unos';
+import Czolko from '../pages/Czolko';
 
 function GameAutoStart() {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ export default function AppLayout() {
           <Route path="/krzyzowka" element={<Crossword />} />
           <Route path="/sudoku" element={<Sudoku />} />
           <Route path="/unos" element={<Unos />} />
+          <Route path="/czolko" element={<Czolko />} />
         </Routes>
       </main>
     </div>

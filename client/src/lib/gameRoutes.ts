@@ -1,4 +1,4 @@
-export type GameId = 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos';
+export type GameId = 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko';
 
 const GAME_ROUTES: Record<GameId, string> = {
   battleship: '/statki',
@@ -6,6 +6,7 @@ const GAME_ROUTES: Record<GameId, string> = {
   crossword: '/krzyzowka',
   sudoku: '/sudoku',
   unos: '/unos',
+  czolko: '/czolko',
 };
 
 const GAME_LABELS: Record<GameId, string> = {
@@ -14,6 +15,7 @@ const GAME_LABELS: Record<GameId, string> = {
   crossword: 'Krzyżówka',
   sudoku: 'Sudoku',
   unos: 'UNOS',
+  czolko: 'Czółko',
 };
 
 export function getGameRoute(game: GameId | null | undefined): string | null {

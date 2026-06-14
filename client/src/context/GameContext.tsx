@@ -24,7 +24,7 @@ export interface Room {
   players: Player[];
   hostId: string;
   status: 'waiting' | 'playing' | 'finished';
-  game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | null;
+  game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | null;
 }
 
 export interface GameOverEvent {
@@ -50,7 +50,7 @@ interface GameContextValue {
   clearGameOver: () => void;
   createRoom: () => Promise<boolean>;
   joinRoom: (code: string) => Promise<boolean>;
-  selectGame: (game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos') => void;
+  selectGame: (game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko') => void;
   backToLobby: () => void;
   leaveRoom: () => void;
   requestGameState: () => void;
@@ -183,7 +183,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, [socket, playerName, sessionId]);
 
-  const selectGame = useCallback((game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos') => {
+  const selectGame = useCallback((game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko') => {
     socket?.emit('selectGame', { game, sessionId, roomCode });
   }, [socket, sessionId, roomCode]);
 

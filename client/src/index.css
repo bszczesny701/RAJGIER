@@ -1533,3 +1533,177 @@ body {
     font-size: 1.1rem;
   }
 }
+
+/* --- Czółko --- */
+.czolko-page {
+  padding-bottom: 48px;
+}
+
+.czolko-subtitle {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.czolko-roles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.czolko-role {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px solid transparent;
+}
+
+.czolko-role.active {
+  border-color: var(--accent-gold);
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.czolko-role-icon {
+  font-size: 1.5rem;
+}
+
+.czolko-role-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.czolko-role-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.czolko-result {
+  text-align: center;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  font-size: 0.9rem;
+}
+
+.czolko-result.correct {
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.35);
+  color: var(--success);
+}
+
+.czolko-result.skipped {
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  color: var(--accent-gold);
+}
+
+.czolko-word-card {
+  text-align: center;
+  padding: 24px 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.czolko-word-card.hinter {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.1));
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.czolko-word-card.guesser {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 140, 66, 0.08));
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.czolko-word-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.czolko-word {
+  font-size: clamp(1.8rem, 8vw, 2.5rem);
+  font-weight: 900;
+  color: var(--accent-gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  word-break: break-word;
+}
+
+.czolko-blanks {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.czolko-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px dashed rgba(255, 215, 0, 0.4);
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+}
+
+.czolko-word-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+
+.czolko-hints {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.czolko-hints h3 {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.czolko-hints-empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.czolko-hints ul {
+  list-style: none;
+}
+
+.czolko-hints li {
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  border-left: 3px solid var(--accent-gold);
+}
+
+.czolko-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.czolko-input-section .btn {
+  width: 100%;
+}

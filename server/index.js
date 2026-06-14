@@ -36,6 +36,13 @@ const {
   passTurn,
   getPublicUnosState,
 } = require('./games/unos');
+const {
+  createCzolkoState,
+  trySendHint,
+  tryGuess,
+  trySkip,
+  getPublicCzolkoState,
+} = require('./games/czolko');
 
 const app = express();
 app.use(cors());
@@ -170,6 +177,16 @@ function buildUnosPayload(room, playerId) {
   };
 }
 
+function buildCzolkoPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  return {
+    ...getPublicCzolkoState(room.gameState, playerId),
+    opponentName: room.players.find((p) => p.id !== playerId)?.name,
+    myName: player?.name,
+    myId: playerId,
+  };
+}
+
 function sendBattleshipState(room, player, targetSocket) {
   targetSocket.emit('battleshipUpdate', buildBattleshipPayload(room, player.id));
 }
@@ -188,6 +205,10 @@ function sendSudokuState(room, player, targetSocket) {
 
 function sendUnosState(room, player, targetSocket) {
   targetSocket.emit('unosUpdate', buildUnosPayload(room, player.id));
+}
+
+function sendCzolkoState(room, player, targetSocket) {
+  targetSocket.emit('czolkoUpdate', buildCzolkoPayload(room, player.id));
 }
 
 function emitRoomUpdate(room) {
@@ -229,6 +250,13 @@ function emitUnosUpdate(room) {
   }
 }
 
+function emitCzolkoUpdate(room) {
+  for (const player of room.players) {
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('czolkoUpdate', buildCzolkoPayload(room, player.id));
+  }
+}
+
 function startGame(room, game) {
   room.game = game;
   room.status = 'playing';
@@ -254,6 +282,9 @@ function startGame(room, game) {
   } else if (game === 'unos') {
     room.gameState = createUnosState(room.players.map((p) => p.id));
     emitUnosUpdate(room);
+  } else if (game === 'czolko') {
+    room.gameState = createCzolkoState(room.players.map((p) => p.id));
+    emitCzolkoUpdate(room);
   }
 
   emitRoomUpdate(room);
@@ -351,7 +382,7 @@ io.on('connection', (socket) => {
     });
     if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
-    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos'].includes(game)) return;
+    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos', 'czolko'].includes(game)) return;
 
     currentRoom = code;
     startGame(room, game);
@@ -621,6 +652,93 @@ io.on('connection', (socket) => {
     emitUnosUpdate(room);
   });
 
+  socket.on('czolkoSendHint', ({ text, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'czolko') return;
+    currentRoom = code;
+
+    const result = trySendHint(room.gameState, player.id, text);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitCzolkoUpdate(room);
+  });
+
+  socket.on('czolkoGuess', ({ guess, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'czolko') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = tryGuess(room.gameState, player.id, guess, playerIds);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitCzolkoUpdate(room);
+
+    if (room.gameState.winner) {
+      let winnerName;
+      if (room.gameState.winner === 'draw') {
+        winnerName = null;
+      } else {
+        winnerName = room.players.find((p) => p.id === room.gameState.winner)?.name;
+      }
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner === 'draw' ? 'draw' : room.gameState.winner,
+        winnerName,
+        game: 'czolko',
+        draw: room.gameState.winner === 'draw',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
+    }
+  });
+
+  socket.on('czolkoSkip', ({ sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'czolko') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = trySkip(room.gameState, player.id, playerIds);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitCzolkoUpdate(room);
+
+    if (room.gameState.winner) {
+      let winnerName;
+      if (room.gameState.winner === 'draw') {
+        winnerName = null;
+      } else {
+        winnerName = room.players.find((p) => p.id === room.gameState.winner)?.name;
+      }
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner === 'draw' ? 'draw' : room.gameState.winner,
+        winnerName,
+        game: 'czolko',
+        draw: room.gameState.winner === 'draw',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
+    }
+  });
+
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
@@ -640,6 +758,8 @@ io.on('connection', (socket) => {
       sendSudokuState(room, player, socket);
     } else if (room.game === 'unos') {
       sendUnosState(room, player, socket);
+    } else if (room.game === 'czolko') {
+      sendCzolkoState(room, player, socket);
     }
   });
 
@@ -718,6 +838,8 @@ io.on('connection', (socket) => {
       sendSudokuState(room, player, socket);
     } else if (room.game === 'unos' && room.gameState) {
       sendUnosState(room, player, socket);
+    } else if (room.game === 'czolko' && room.gameState) {
+      sendCzolkoState(room, player, socket);
     }
   });
 

@@ -141,6 +141,10 @@ export default function Home() {
             <span style={{ fontSize: '1.5rem' }}>🃏</span>
             <p style={{ fontSize: '0.8rem', marginTop: 4 }}>UNOS</p>
           </div>
+          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
+            <span style={{ fontSize: '1.5rem' }}>🎯</span>
+            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Czółko</p>
+          </div>
         </div>
       </div>
     </div>

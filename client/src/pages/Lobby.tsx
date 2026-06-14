@@ -138,6 +138,15 @@ export default function Lobby() {
               <h3>UNOS</h3>
               <p>Pojedynek kart 1 na 1</p>
             </button>
+            <button
+              type="button"
+              className="game-option"
+              onClick={() => selectGame('czolko')}
+            >
+              <span className="emoji">🎯</span>
+              <h3>Czółko</h3>
+              <p>Zgaduj słowo na czole</p>
+            </button>
           </div>
         </div>
       )}
@@ -181,7 +190,9 @@ export default function Lobby() {
                         ? 'Ułożyłeś sudoku szybciej!'
                         : gameOver.game === 'unos'
                           ? 'Pierwszy bez kart!'
-                          : 'Znalazłeś więcej słów!'}
+                          : gameOver.game === 'czolko'
+                            ? 'Pierwszy do 5 trafień!'
+                            : 'Znalazłeś więcej słów!'}
             </p>
             {isHost ? (
               <button className="btn btn-primary" onClick={() => { clearGameOver(); backToLobby(); }}>
