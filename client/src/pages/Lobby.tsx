@@ -28,7 +28,7 @@ function GameOptionButton({
     crossword: { emoji: '📝', title: 'Krzyżówka', desc: 'Kto więcej haseł odgadnie' },
     sudoku: { emoji: '🔢', title: 'Sudoku', desc: 'Kto szybciej ułoży' },
     unos: { emoji: '🃏', title: 'UNOS', desc: 'Pojedynek kart' },
-    czolko: { emoji: '🎯', title: 'Czółko', desc: 'Zgaduj słynne osoby' },
+    czolko: { emoji: '🎯', title: 'Czółko', desc: 'Pytania TAK/NIE' },
   };
 
   const info = meta[game];

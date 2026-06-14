@@ -2,13 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
-interface Hint {
-  text: string;
-  time: number;
-  playerId: string;
-  playerName: string;
-}
-
 interface PersonInfo {
   name: string;
   age: string;
@@ -16,12 +9,30 @@ interface PersonInfo {
   knownFor: string;
 }
 
+interface QaEntry {
+  question: string;
+  answer: 'yes' | 'no' | 'bad';
+  answerLabel: string;
+  answeredByName: string;
+  time: number;
+}
+
+interface PendingQuestion {
+  text: string;
+  guesserName: string;
+}
+
 interface RoundResult {
-  type: 'correct' | 'skipped';
-  name: string;
+  type: 'correct' | 'skipped' | 'answered';
+  name?: string;
+  personName?: string;
   guess?: string;
   guesserId: string;
   skippedBy?: string;
+  answeredBy?: string;
+  answer?: 'yes' | 'no' | 'bad';
+  answerLabel?: string;
+  question?: string;
 }
 
 interface CzolkoState {
@@ -29,10 +40,12 @@ interface CzolkoState {
   guesserId: string;
   playerIds: string[];
   role: 'guesser' | 'hinter';
+  phase: 'asking' | 'answering';
   person: PersonInfo | null;
+  pendingQuestion: PendingQuestion | null;
   nameLength: number;
   wordCount: number;
-  hints: Hint[];
+  qaLog: QaEntry[];
   scores: Record<string, number>;
   lastResult: RoundResult | null;
   winner: string | null;
@@ -59,7 +72,7 @@ export default function Czolko() {
     requestGameState,
   } = useGame();
   const [state, setState] = useState<CzolkoState | null>(null);
-  const [hintText, setHintText] = useState('');
+  const [questionText, setQuestionText] = useState('');
   const [guessText, setGuessText] = useState('');
   const isHost = room?.hostId === playerId;
 
@@ -85,14 +98,19 @@ export default function Czolko() {
     return () => { socket.off('czolkoUpdate', handler); };
   }, [socket, room, requestGameState]);
 
-  const handleSendHint = () => {
-    if (!socket || !hintText.trim()) return;
-    socket.emit('czolkoSendHint', {
-      text: hintText,
+  const handleAskQuestion = () => {
+    if (!socket || !questionText.trim()) return;
+    socket.emit('czolkoAskQuestion', {
+      text: questionText,
       sessionId,
       roomCode,
     });
-    setHintText('');
+    setQuestionText('');
+  };
+
+  const handleAnswer = (answer: 'yes' | 'no' | 'bad') => {
+    if (!socket) return;
+    socket.emit('czolkoAnswerQuestion', { answer, sessionId, roomCode });
   };
 
   const handleGuess = () => {
@@ -127,6 +145,9 @@ export default function Czolko() {
     .filter((id) => id !== state.guesserId)
     .map((id) => state.playerNames[id] || 'Gracz');
 
+  const isMyTurnAsGuesser = state.role === 'guesser' && state.phase === 'asking';
+  const canAnswer = state.role === 'hinter' && state.phase === 'answering' && state.pendingQuestion;
+
   return (
     <div className="page czolko-page">
       <div className="game-header">
@@ -137,7 +158,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Runda {state.round} · {state.playerIds.length} graczy · do {state.winScore} pkt
+        Pytania TAK/NIE · tura {state.round} · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -169,9 +190,9 @@ export default function Czolko() {
           </div>
         </div>
         <div className={`czolko-role ${state.role === 'hinter' ? 'active' : ''}`}>
-          <span className="czolko-role-icon">💡</span>
+          <span className="czolko-role-icon">💬</span>
           <div>
-            <div className="czolko-role-label">Podpowiadają</div>
+            <div className="czolko-role-label">Odpowiada</div>
             <div className="czolko-role-name">{hinterNames.join(', ')}</div>
           </div>
         </div>
@@ -179,17 +200,26 @@ export default function Czolko() {
 
       {state.lastResult && (
         <div className={`czolko-result ${state.lastResult.type}`}>
-          {state.lastResult.type === 'correct' ? (
-            <>✓ Trafione! Osoba: <strong>{state.lastResult.name}</strong></>
-          ) : (
-            <>⏭ Pominięto — osoba: <strong>{state.lastResult.name}</strong></>
+          {state.lastResult.type === 'correct' && (
+            <>✓ Trafione! <strong>{state.lastResult.name}</strong> — +1 pkt</>
+          )}
+          {state.lastResult.type === 'skipped' && (
+            <>⏭ Pominięto — <strong>{state.lastResult.name}</strong></>
+          )}
+          {state.lastResult.type === 'answered' && (
+            <>
+              Odpowiedź: <strong>{state.lastResult.answerLabel}</strong>
+              {state.lastResult.personName && (
+                <> · osoba: <strong>{state.lastResult.personName}</strong></>
+              )}
+            </>
           )}
         </div>
       )}
 
       {state.role === 'hinter' && state.person && (
         <div className="czolko-word-card hinter">
-          <p className="czolko-word-label">Osoba do podpowiedzenia (nie mów imienia!)</p>
+          <p className="czolko-word-label">Widzisz kartę — odpowiadaj tylko TAK, NIE lub ŹLE PYTANIE</p>
           <div className="czolko-word">{state.person.name}</div>
           <div className="czolko-person-info">
             <div className="czolko-person-field">
@@ -205,7 +235,6 @@ export default function Czolko() {
               <span className="czolko-person-value">{state.person.knownFor}</span>
             </div>
           </div>
-          <p className="czolko-word-hint">Opisz tę osobę słowami — bez imienia i nazwiska</p>
         </div>
       )}
 
@@ -218,51 +247,80 @@ export default function Czolko() {
             {' · '}
             {state.nameLength} {state.nameLength === 1 ? 'litera' : state.nameLength < 5 ? 'litery' : 'liter'}
           </p>
-          <p className="czolko-word-hint">Słuchaj podpowiedzi i zgaduj kto to</p>
+          <p className="czolko-word-hint">
+            {state.phase === 'answering'
+              ? 'Czekasz na odpowiedź...'
+              : 'Zadaj pytanie TAK/NIE lub zgadnij kto to'}
+          </p>
+        </div>
+      )}
+
+      {state.pendingQuestion && (
+        <div className="czolko-question-card">
+          <p className="czolko-question-label">Pytanie od {state.pendingQuestion.guesserName}</p>
+          <p className="czolko-question-text">„{state.pendingQuestion.text}"</p>
+        </div>
+      )}
+
+      {canAnswer && (
+        <div className="czolko-answer-buttons">
+          <button type="button" className="czolko-answer-btn yes" onClick={() => handleAnswer('yes')}>
+            ✓ TAK
+          </button>
+          <button type="button" className="czolko-answer-btn no" onClick={() => handleAnswer('no')}>
+            ✗ NIE
+          </button>
+          <button type="button" className="czolko-answer-btn bad" onClick={() => handleAnswer('bad')}>
+            ? ŹLE PYTANIE
+          </button>
         </div>
       )}
 
       <div className="czolko-hints">
-        <h3>Podpowiedzi</h3>
-        {state.hints.length === 0 ? (
-          <p className="czolko-hints-empty">Jeszcze brak podpowiedzi...</p>
+        <h3>Historia pytań</h3>
+        {state.qaLog.length === 0 ? (
+          <p className="czolko-hints-empty">Jeszcze brak pytań w tej turze...</p>
         ) : (
-          <ul>
-            {state.hints.map((hint, idx) => (
-              <li key={`${hint.time}-${idx}`}>
-                <span className="czolko-hint-author">{hint.playerName}:</span> {hint.text}
+          <ul className="czolko-qa-list">
+            {state.qaLog.map((entry, idx) => (
+              <li key={`${entry.time}-${idx}`} className={`czolko-qa-item answer-${entry.answer}`}>
+                <p className="czolko-qa-question">„{entry.question}"</p>
+                <p className="czolko-qa-answer">
+                  <strong>{entry.answerLabel}</strong>
+                  <span className="czolko-qa-by"> — {entry.answeredByName}</span>
+                </p>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      {state.role === 'hinter' && (
+      {state.role === 'guesser' && state.phase === 'asking' && (
         <div className="czolko-input-section">
           <div className="input-group">
-            <label htmlFor="hint">Twoja podpowiedź</label>
+            <label htmlFor="question">Twoje pytanie</label>
             <input
-              id="hint"
+              id="question"
               className="input"
               type="text"
-              placeholder="np. strzela gole w Barcelonie..."
-              value={hintText}
-              onChange={(e) => setHintText(e.target.value)}
-              maxLength={120}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendHint()}
+              placeholder="np. Czy to sportowiec?"
+              value={questionText}
+              onChange={(e) => setQuestionText(e.target.value)}
+              maxLength={160}
+              onKeyDown={(e) => e.key === 'Enter' && handleAskQuestion()}
             />
           </div>
-          <button type="button" className="btn btn-primary" onClick={handleSendHint} disabled={!hintText.trim()}>
-            Wyślij podpowiedź
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleAskQuestion}
+            disabled={!questionText.trim()}
+          >
+            Zadaj pytanie
           </button>
-          <button type="button" className="btn btn-secondary" onClick={handleSkip}>
-            Pomiń osobę
-          </button>
-        </div>
-      )}
 
-      {state.role === 'guesser' && (
-        <div className="czolko-input-section">
+          <div className="czolko-divider"><span>albo zgadnij</span></div>
+
           <div className="input-group">
             <label htmlFor="guess">Kto to jest?</label>
             <input
@@ -278,12 +336,20 @@ export default function Czolko() {
             />
           </div>
           <button type="button" className="btn btn-primary" onClick={handleGuess} disabled={!guessText.trim()}>
-            Zgaduj!
+            Zgaduj! (+1 pkt)
           </button>
           <button type="button" className="btn btn-secondary" onClick={handleSkip}>
-            Poddaj się
+            Pomiń osobę
           </button>
         </div>
+      )}
+
+      {state.role === 'hinter' && !canAnswer && (
+        <p className="czolko-waiting-hint">
+          {state.phase === 'answering'
+            ? 'Inny gracz może odpowiedzieć...'
+            : 'Czekaj, aż zgadujący zada pytanie...'}
+        </p>
       )}
 
       {gameOver && (

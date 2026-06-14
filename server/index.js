@@ -38,7 +38,8 @@ const {
 } = require('./games/unos');
 const {
   createCzolkoState,
-  trySendHint,
+  tryAskQuestion,
+  tryAnswerQuestion,
   tryGuess,
   trySkip,
   getPublicCzolkoState,
@@ -673,7 +674,7 @@ io.on('connection', (socket) => {
     emitUnosUpdate(room);
   });
 
-  socket.on('czolkoSendHint', ({ text, sessionId, roomCode }) => {
+  socket.on('czolkoAskQuestion', ({ text, sessionId, roomCode }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
       roomCode,
@@ -681,13 +682,42 @@ io.on('connection', (socket) => {
     if (!room || !player || room.game !== 'czolko') return;
     currentRoom = code;
 
-    const result = trySendHint(room.gameState, player.id, text);
+    const result = tryAskQuestion(room.gameState, player.id, text);
     if (!result.success) {
       socket.emit('error', { message: result.reason });
       return;
     }
 
     emitCzolkoUpdate(room);
+  });
+
+  socket.on('czolkoAnswerQuestion', ({ answer, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'czolko') return;
+    currentRoom = code;
+
+    const playerIds = room.players.map((p) => p.id);
+    const result = tryAnswerQuestion(room.gameState, player.id, answer, playerIds);
+    if (!result.success) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitCzolkoUpdate(room);
+
+    if (room.gameState.winner) {
+      const winnerName = room.players.find((p) => p.id === room.gameState.winner)?.name;
+      io.to(room.code).emit('gameOver', {
+        winnerId: room.gameState.winner,
+        winnerName,
+        game: 'czolko',
+      });
+      room.status = 'finished';
+      emitRoomUpdate(room);
+    }
   });
 
   socket.on('czolkoGuess', ({ guess, sessionId, roomCode }) => {

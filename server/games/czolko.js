@@ -65,6 +65,8 @@ const PEOPLE = [
   { name: 'JAMIE OLIVER', age: '49 lat', nationality: 'Wielka Brytania', knownFor: 'Szef kuchni' },
 ];
 
+const VALID_ANSWERS = ['yes', 'no', 'bad'];
+
 function shuffle(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -111,13 +113,13 @@ function answersMatch(given, expected) {
   return false;
 }
 
-function hintContainsName(hint, name) {
-  const hintNorm = normalize(hint);
+function textContainsName(text, name) {
+  const textNorm = normalize(text);
   const fullNorm = normalize(name);
-  if (hintNorm.includes(fullNorm)) return true;
+  if (textNorm.includes(fullNorm)) return true;
 
   for (const part of getNameParts(name)) {
-    if (hintNorm.includes(part)) return true;
+    if (textNorm.includes(part)) return true;
   }
 
   return false;
@@ -128,8 +130,9 @@ function pickNextPerson(state) {
     state.personPool = shuffle(PEOPLE);
   }
   state.currentPerson = state.personPool.pop();
-  state.hints = [];
-  state.lastResult = null;
+  state.qaLog = [];
+  state.pendingQuestion = null;
+  state.phase = 'asking';
 }
 
 function advanceGuesser(state, playerIds) {
@@ -147,6 +150,15 @@ function checkWinner(state) {
   }
 }
 
+function advanceTurn(state, playerIds, lastResult = null) {
+  state.lastResult = lastResult;
+  checkWinner(state);
+  if (state.winner) return;
+
+  advanceGuesser(state, playerIds);
+  pickNextPerson(state);
+}
+
 function createCzolkoState(playerIds) {
   const personPool = shuffle(PEOPLE);
 
@@ -155,7 +167,9 @@ function createCzolkoState(playerIds) {
     currentPerson: null,
     round: 1,
     guesserId: playerIds[0],
-    hints: [],
+    phase: 'asking',
+    pendingQuestion: null,
+    qaLog: [],
     scores: {},
     lastResult: null,
     winner: null,
@@ -172,40 +186,66 @@ function createCzolkoState(playerIds) {
   return state;
 }
 
-function finishRound(state, playerIds, result) {
-  state.lastResult = result;
+function tryAskQuestion(state, playerId, text) {
+  if (state.winner) return { success: false, reason: 'Gra zakończona' };
+  if (playerId !== state.guesserId) return { success: false, reason: 'Tylko zgadujący może zadawać pytania' };
+  if (state.phase !== 'asking') return { success: false, reason: 'Czekaj na odpowiedź' };
 
-  if (result.type === 'correct') {
-    state.scores[state.guesserId] = (state.scores[state.guesserId] || 0) + 1;
+  const question = (text || '').trim().slice(0, 160);
+  if (!question) return { success: false, reason: 'Wpisz pytanie' };
+
+  if (textContainsName(question, state.currentPerson.name)) {
+    return { success: false, reason: 'Nie możesz użyć imienia ani nazwiska w pytaniu!' };
   }
 
-  checkWinner(state);
-  if (state.winner) return;
+  state.pendingQuestion = {
+    text: question,
+    time: Date.now(),
+    guesserId: playerId,
+  };
+  state.phase = 'answering';
 
-  advanceGuesser(state, playerIds);
-  pickNextPerson(state);
+  return { success: true };
 }
 
-function trySendHint(state, playerId, text) {
+function tryAnswerQuestion(state, playerId, answer, playerIds) {
   if (state.winner) return { success: false, reason: 'Gra zakończona' };
-  if (playerId === state.guesserId) {
-    return { success: false, reason: 'Zgadujący nie może podpowiadać' };
+  if (playerId === state.guesserId) return { success: false, reason: 'Zgadujący nie odpowiada na pytania' };
+  if (state.phase !== 'answering' || !state.pendingQuestion) {
+    return { success: false, reason: 'Brak pytania do odpowiedzi' };
+  }
+  if (!VALID_ANSWERS.includes(answer)) {
+    return { success: false, reason: 'Nieprawidłowa odpowiedź' };
   }
 
-  const hint = (text || '').trim().slice(0, 120);
-  if (!hint) return { success: false, reason: 'Wpisz podpowiedź' };
+  const entry = {
+    question: state.pendingQuestion.text,
+    answer,
+    answeredBy: playerId,
+    time: Date.now(),
+  };
+  state.qaLog.push(entry);
 
-  if (hintContainsName(hint, state.currentPerson.name)) {
-    return { success: false, reason: 'Nie możesz użyć imienia ani nazwiska!' };
-  }
+  const personName = state.currentPerson.name;
+  const guesserId = state.pendingQuestion.guesserId;
+  const questionText = state.pendingQuestion.text;
 
-  state.hints.push({ text: hint, time: Date.now(), playerId });
-  return { success: true };
+  advanceTurn(state, playerIds, {
+    type: 'answered',
+    answer,
+    question: questionText,
+    personName,
+    guesserId,
+    answeredBy: playerId,
+  });
+
+  return { success: true, answer };
 }
 
 function tryGuess(state, playerId, guess, playerIds) {
   if (state.winner) return { success: false, reason: 'Gra zakończona' };
   if (playerId !== state.guesserId) return { success: false, reason: 'Tylko zgadujący może odpowiadać' };
+  if (state.phase !== 'asking') return { success: false, reason: 'Najpierw poczekaj na odpowiedź' };
 
   const answer = (guess || '').trim();
   if (!answer) return { success: false, reason: 'Wpisz odpowiedź' };
@@ -214,24 +254,26 @@ function tryGuess(state, playerId, guess, playerIds) {
     return { success: false, reason: 'Nie ta osoba — spróbuj jeszcze raz!' };
   }
 
-  finishRound(state, playerIds, {
+  state.scores[state.guesserId] = (state.scores[state.guesserId] || 0) + 1;
+
+  const personName = state.currentPerson.name;
+  advanceTurn(state, playerIds, {
     type: 'correct',
-    name: state.currentPerson.name,
+    name: personName,
     guess: normalizeAnswer(answer),
     guesserId: playerId,
   });
 
-  return { success: true, correct: true, name: state.currentPerson.name };
+  return { success: true, correct: true, name: personName };
 }
 
 function trySkip(state, playerId, playerIds) {
   if (state.winner) return { success: false, reason: 'Gra zakończona' };
-  if (!playerIds.includes(playerId)) {
-    return { success: false, reason: 'Nie jesteś w tej rundzie' };
-  }
+  if (playerId !== state.guesserId) return { success: false, reason: 'Tylko zgadujący może pominąć' };
+  if (state.phase !== 'asking') return { success: false, reason: 'Najpierw poczekaj na odpowiedź' };
 
   const name = state.currentPerson.name;
-  finishRound(state, playerIds, {
+  advanceTurn(state, playerIds, {
     type: 'skipped',
     name,
     guesserId: state.guesserId,
@@ -255,6 +297,12 @@ function getPersonMeta(person) {
   };
 }
 
+const ANSWER_LABELS = {
+  yes: 'Tak',
+  no: 'Nie',
+  bad: 'Źle pytanie',
+};
+
 function getPublicCzolkoState(state, playerId, playerNames = {}) {
   const isGuesser = playerId === state.guesserId;
   const meta = getPersonMeta(state.currentPerson);
@@ -264,32 +312,49 @@ function getPublicCzolkoState(state, playerId, playerNames = {}) {
     guesserId: state.guesserId,
     playerIds: state.playerIds,
     role: isGuesser ? 'guesser' : 'hinter',
+    phase: state.phase,
     person: !isGuesser ? {
       name: state.currentPerson.name,
       age: state.currentPerson.age,
       nationality: state.currentPerson.nationality,
       knownFor: state.currentPerson.knownFor,
     } : null,
+    pendingQuestion: state.pendingQuestion
+      ? {
+          text: state.pendingQuestion.text,
+          guesserName: playerNames[state.pendingQuestion.guesserId] || 'Gracz',
+        }
+      : null,
     nameLength: meta.nameLength,
     wordCount: meta.wordCount,
-    hints: state.hints.map((hint) => ({
-      text: hint.text,
-      time: hint.time,
-      playerId: hint.playerId,
-      playerName: playerNames[hint.playerId] || 'Gracz',
+    qaLog: state.qaLog.map((entry) => ({
+      question: entry.question,
+      answer: entry.answer,
+      answerLabel: ANSWER_LABELS[entry.answer] || entry.answer,
+      answeredByName: playerNames[entry.answeredBy] || 'Gracz',
+      time: entry.time,
     })),
     scores: state.scores,
-    lastResult: state.lastResult,
+    lastResult: state.lastResult
+      ? {
+          ...state.lastResult,
+          answerLabel: state.lastResult.answer
+            ? ANSWER_LABELS[state.lastResult.answer]
+            : undefined,
+        }
+      : null,
     winner: state.winner,
     winScore: state.winScore,
     startTime: state.startTime,
     playerNames,
+    answerLabels: ANSWER_LABELS,
   };
 }
 
 module.exports = {
   createCzolkoState,
-  trySendHint,
+  tryAskQuestion,
+  tryAnswerQuestion,
   tryGuess,
   trySkip,
   getPublicCzolkoState,
