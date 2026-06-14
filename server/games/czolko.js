@@ -125,20 +125,69 @@ function textContainsName(text, name) {
   return false;
 }
 
-function pickNextPerson(state) {
-  if (state.personPool.length === 0) {
+function getUsedPersonNames(state, exceptPlayerId = null) {
+  const names = new Set();
+  for (const [id, person] of Object.entries(state.playerPersons || {})) {
+    if (id !== exceptPlayerId && person?.name) {
+      names.add(person.name);
+    }
+  }
+  return names;
+}
+
+function refillPersonPool(state) {
+  if (!state.personPool || state.personPool.length === 0) {
     state.personPool = shuffle(PEOPLE);
   }
-  state.currentPerson = state.personPool.pop();
-  state.qaLog = [];
-  state.pendingQuestion = null;
-  state.phase = 'asking';
+}
+
+function pickPersonForPlayer(state, playerId) {
+  refillPersonPool(state);
+  if (!state.playerPersons) state.playerPersons = {};
+  if (!state.qaLogByPlayer) state.qaLogByPlayer = {};
+
+  const usedNames = getUsedPersonNames(state, playerId);
+  let person = null;
+  let attempts = 0;
+
+  while (attempts < PEOPLE.length) {
+    refillPersonPool(state);
+    person = state.personPool.pop();
+    if (!usedNames.has(person.name)) break;
+    attempts += 1;
+  }
+
+  state.playerPersons[playerId] = person;
+  state.qaLogByPlayer[playerId] = [];
+}
+
+function assignAllPlayerPersons(state, playerIds) {
+  if (!state.playerPersons) state.playerPersons = {};
+  if (!state.qaLogByPlayer) state.qaLogByPlayer = {};
+
+  for (const id of playerIds) {
+    if (!state.playerPersons[id]) {
+      pickPersonForPlayer(state, id);
+    } else if (!state.qaLogByPlayer[id]) {
+      state.qaLogByPlayer[id] = [];
+    }
+  }
+}
+
+function getPlayerPerson(state, playerId) {
+  return state.playerPersons?.[playerId] || null;
+}
+
+function getGuesserPerson(state) {
+  return getPlayerPerson(state, state.guesserId);
 }
 
 function rotateGuesser(state, playerIds) {
   const guesserIdx = playerIds.indexOf(state.guesserId);
   state.guesserId = playerIds[(guesserIdx + 1) % playerIds.length];
   state.round += 1;
+  state.pendingQuestion = null;
+  state.phase = 'asking';
 }
 
 function checkWinner(state) {
@@ -150,26 +199,15 @@ function checkWinner(state) {
   }
 }
 
-function startNextPerson(state, playerIds, lastResult = null) {
-  state.lastResult = lastResult;
-  checkWinner(state);
-  if (state.winner) return;
-
-  rotateGuesser(state, playerIds);
-  pickNextPerson(state);
-}
-
 function createCzolkoState(playerIds) {
-  const personPool = shuffle(PEOPLE);
-
   const state = {
-    personPool,
-    currentPerson: null,
+    personPool: shuffle(PEOPLE),
+    playerPersons: {},
+    qaLogByPlayer: {},
     round: 1,
     guesserId: playerIds[0],
     phase: 'asking',
     pendingQuestion: null,
-    qaLog: [],
     scores: {},
     lastResult: null,
     winner: null,
@@ -182,7 +220,7 @@ function createCzolkoState(playerIds) {
     state.scores[id] = 0;
   }
 
-  pickNextPerson(state);
+  assignAllPlayerPersons(state, playerIds);
   return state;
 }
 
@@ -191,10 +229,13 @@ function tryAskQuestion(state, playerId, text) {
   if (playerId !== state.guesserId) return { success: false, reason: 'Tylko zgadujący może zadawać pytania' };
   if (state.phase !== 'asking') return { success: false, reason: 'Czekaj na odpowiedź' };
 
+  const person = getGuesserPerson(state);
+  if (!person) return { success: false, reason: 'Brak postaci' };
+
   const question = (text || '').trim().slice(0, 160);
   if (!question) return { success: false, reason: 'Wpisz pytanie' };
 
-  if (textContainsName(question, state.currentPerson.name)) {
+  if (textContainsName(question, person.name)) {
     return { success: false, reason: 'Nie możesz użyć imienia ani nazwiska w pytaniu!' };
   }
 
@@ -218,20 +259,20 @@ function tryAnswerQuestion(state, playerId, answer, playerIds) {
     return { success: false, reason: 'Nieprawidłowa odpowiedź' };
   }
 
-  const entry = {
-    question: state.pendingQuestion.text,
-    answer,
-    answeredBy: playerId,
-    time: Date.now(),
-  };
-  state.qaLog.push(entry);
-
   const guesserId = state.pendingQuestion.guesserId;
   const questionText = state.pendingQuestion.text;
 
-  // Ta sama postać — po odpowiedzi kolejka przechodzi do następnego zgadującego
-  state.pendingQuestion = null;
-  state.phase = 'asking';
+  if (!state.qaLogByPlayer[guesserId]) {
+    state.qaLogByPlayer[guesserId] = [];
+  }
+
+  state.qaLogByPlayer[guesserId].push({
+    question: questionText,
+    answer,
+    answeredBy: playerId,
+    time: Date.now(),
+  });
+
   state.lastResult = {
     type: 'answered',
     answer,
@@ -239,8 +280,8 @@ function tryAnswerQuestion(state, playerId, answer, playerIds) {
     guesserId,
     answeredBy: playerId,
   };
-  rotateGuesser(state, playerIds);
 
+  rotateGuesser(state, playerIds);
   return { success: true, answer };
 }
 
@@ -249,22 +290,31 @@ function tryGuess(state, playerId, guess, playerIds) {
   if (playerId !== state.guesserId) return { success: false, reason: 'Tylko zgadujący może odpowiadać' };
   if (state.phase !== 'asking') return { success: false, reason: 'Najpierw poczekaj na odpowiedź' };
 
+  const person = getPlayerPerson(state, playerId);
+  if (!person) return { success: false, reason: 'Brak postaci' };
+
   const answer = (guess || '').trim();
   if (!answer) return { success: false, reason: 'Wpisz odpowiedź' };
 
-  if (!answersMatch(answer, state.currentPerson.name)) {
+  if (!answersMatch(answer, person.name)) {
     return { success: false, reason: 'Nie ta osoba — spróbuj jeszcze raz!' };
   }
 
-  state.scores[state.guesserId] = (state.scores[state.guesserId] || 0) + 1;
+  state.scores[playerId] = (state.scores[playerId] || 0) + 1;
 
-  const personName = state.currentPerson.name;
-  startNextPerson(state, playerIds, {
+  const personName = person.name;
+  state.lastResult = {
     type: 'correct',
     name: personName,
     guess: normalizeAnswer(answer),
     guesserId: playerId,
-  });
+  };
+
+  checkWinner(state);
+  if (state.winner) return { success: true, correct: true, name: personName };
+
+  pickPersonForPlayer(state, playerId);
+  rotateGuesser(state, playerIds);
 
   return { success: true, correct: true, name: personName };
 }
@@ -274,13 +324,17 @@ function trySkip(state, playerId, playerIds) {
   if (playerId !== state.guesserId) return { success: false, reason: 'Tylko zgadujący może pominąć' };
   if (state.phase !== 'asking') return { success: false, reason: 'Najpierw poczekaj na odpowiedź' };
 
-  const name = state.currentPerson.name;
+  const person = getPlayerPerson(state, playerId);
+  const name = person?.name || '?';
+
   state.lastResult = {
     type: 'skipped',
     name,
-    guesserId: state.guesserId,
+    guesserId: playerId,
     skippedBy: playerId,
   };
+
+  pickPersonForPlayer(state, playerId);
   rotateGuesser(state, playerIds);
 
   return { success: true, skipped: true, name };
@@ -310,21 +364,35 @@ function normalizeCzolkoState(state, playerIds = []) {
   if (!state.playerIds || !state.playerIds.length) {
     state.playerIds = playerIds.length ? playerIds : Object.keys(state.scores || {});
   }
-  if (!Array.isArray(state.qaLog)) {
-    state.qaLog = [];
-  }
-  if (!state.phase) {
-    state.phase = state.pendingQuestion ? 'answering' : 'asking';
+  if (!state.scores) {
+    state.scores = {};
   }
   if (!state.personPool || !state.personPool.length) {
     state.personPool = shuffle(PEOPLE);
   }
-  if (!state.currentPerson) {
-    state.currentPerson = state.personPool.pop();
+  if (!state.phase) {
+    state.phase = state.pendingQuestion ? 'answering' : 'asking';
   }
-  if (!state.scores) {
-    state.scores = {};
+
+  // Migracja ze starego formatu (jedna wspólna postać)
+  if (!state.playerPersons && state.currentPerson) {
+    state.playerPersons = {};
+    for (const id of state.playerIds) {
+      state.playerPersons[id] = state.currentPerson;
+    }
+    delete state.currentPerson;
   }
+
+  if (!state.qaLogByPlayer) {
+    state.qaLogByPlayer = {};
+    if (Array.isArray(state.qaLog) && state.qaLog.length) {
+      const legacyGuesser = state.guesserId || state.playerIds[0];
+      state.qaLogByPlayer[legacyGuesser] = state.qaLog;
+    }
+    delete state.qaLog;
+  }
+
+  assignAllPlayerPersons(state, state.playerIds);
   return state;
 }
 
@@ -332,8 +400,11 @@ function getPublicCzolkoState(state, playerId, playerNames = {}, playerIds = [])
   normalizeCzolkoState(state, playerIds);
 
   const isGuesser = playerId === state.guesserId;
-  const meta = getPersonMeta(state.currentPerson);
-  const person = state.currentPerson;
+  const guesserPerson = getGuesserPerson(state);
+  const myPerson = getPlayerPerson(state, playerId);
+  const displayPerson = isGuesser ? myPerson : guesserPerson;
+  const meta = getPersonMeta(displayPerson);
+  const activeQaLog = state.qaLogByPlayer?.[state.guesserId] || [];
 
   return {
     round: state.round || 1,
@@ -341,11 +412,11 @@ function getPublicCzolkoState(state, playerId, playerNames = {}, playerIds = [])
     playerIds: state.playerIds,
     role: isGuesser ? 'guesser' : 'hinter',
     phase: state.phase || 'asking',
-    person: !isGuesser && person ? {
-      name: person.name,
-      age: person.age,
-      nationality: person.nationality,
-      knownFor: person.knownFor,
+    person: !isGuesser && guesserPerson ? {
+      name: guesserPerson.name,
+      age: guesserPerson.age,
+      nationality: guesserPerson.nationality,
+      knownFor: guesserPerson.knownFor,
     } : null,
     pendingQuestion: state.pendingQuestion
       ? {
@@ -355,7 +426,7 @@ function getPublicCzolkoState(state, playerId, playerNames = {}, playerIds = [])
       : null,
     nameLength: meta.nameLength,
     wordCount: meta.wordCount,
-    qaLog: (state.qaLog || []).map((entry) => ({
+    qaLog: activeQaLog.map((entry) => ({
       question: entry.question,
       answer: entry.answer,
       answerLabel: ANSWER_LABELS[entry.answer] || entry.answer,

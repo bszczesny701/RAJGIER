@@ -203,7 +203,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Ta sama osoba dla wszystkich · teraz zgaduje {guesserName} · do {state.winScore} pkt
+        Każdy ma swoją postać · teraz zgaduje {guesserName} · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -262,7 +262,7 @@ export default function Czolko() {
       {state.role === 'hinter' && state.person && (
         <div className="czolko-word-card hinter">
           <p className="czolko-word-label">
-            Ta sama postać dla wszystkich — odpowiadaj TAK, NIE lub ŹLE PYTANIE
+            Karta {guesserName} — odpowiedz TAK, NIE lub ŹLE PYTANIE
           </p>
           <div className="czolko-word">{state.person.name}</div>
           <div className="czolko-person-info">
@@ -284,7 +284,7 @@ export default function Czolko() {
 
       {state.role === 'guesser' && (
         <div className="czolko-word-card guesser">
-          <p className="czolko-word-label">Masz osobę na czole!</p>
+          <p className="czolko-word-label">Twoja postać na czole — nie widzisz kto to</p>
           <div className="czolko-person-silhouette">👤</div>
           <p className="czolko-person-meta">
             {state.wordCount} {state.wordCount === 1 ? 'słowo' : state.wordCount < 5 ? 'słowa' : 'słów'}
@@ -391,8 +391,8 @@ export default function Czolko() {
       {state.role === 'hinter' && !canAnswer && (
         <p className="czolko-waiting-hint">
           {state.phase === 'answering'
-            ? 'Odpowiedz na pytanie — postać zostaje ta sama'
-            : `Czekaj, aż ${guesserName} zada pytanie`}
+            ? `Odpowiedz na pytanie ${guesserName} o jego/jej postaci`
+            : `Czekaj, aż ${guesserName} zada pytanie o swoją postać`}
         </p>
       )}
 
