@@ -1707,3 +1707,49 @@ body {
 .czolko-input-section .btn {
   width: 100%;
 }
+
+.czolko-person-info {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  text-align: left;
+}
+
+.czolko-person-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.czolko-person-key {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.czolko-person-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: right;
+}
+
+.czolko-person-silhouette {
+  font-size: 4rem;
+  line-height: 1;
+  margin: 8px 0;
+  filter: grayscale(0.2);
+}
+
+.czolko-person-meta {
+  font-size: 0.9rem;
+  color: var(--accent-gold);
+  font-weight: 600;
+  margin-bottom: 4px;
+}

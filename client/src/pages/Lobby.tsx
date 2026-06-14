@@ -145,7 +145,7 @@ export default function Lobby() {
             >
               <span className="emoji">🎯</span>
               <h3>Czółko</h3>
-              <p>Zgaduj słowo na czole</p>
+              <p>Zgaduj słynne osoby</p>
             </button>
           </div>
         </div>

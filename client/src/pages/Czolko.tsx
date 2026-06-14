@@ -7,9 +7,16 @@ interface Hint {
   time: number;
 }
 
+interface PersonInfo {
+  name: string;
+  age: string;
+  nationality: string;
+  knownFor: string;
+}
+
 interface RoundResult {
   type: 'correct' | 'skipped';
-  word: string;
+  name: string;
   guess?: string;
   guesserId: string;
   skippedBy?: string;
@@ -20,8 +27,9 @@ interface CzolkoState {
   guesserId: string;
   hinterId: string;
   role: 'guesser' | 'hinter' | 'spectator';
-  word: string | null;
-  wordLength: number;
+  person: PersonInfo | null;
+  nameLength: number;
+  wordCount: number;
   hints: Hint[];
   scores: Record<string, number>;
   lastResult: RoundResult | null;
@@ -135,7 +143,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Runda {state.round} · do {state.winScore} pkt
+        Runda {state.round} · zgaduj osoby · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -180,30 +188,45 @@ export default function Czolko() {
       {state.lastResult && (
         <div className={`czolko-result ${state.lastResult.type}`}>
           {state.lastResult.type === 'correct' ? (
-            <>✓ Trafione! Słowo: <strong>{state.lastResult.word}</strong></>
+            <>✓ Trafione! Osoba: <strong>{state.lastResult.name}</strong></>
           ) : (
-            <>⏭ Pominięto — słowo: <strong>{state.lastResult.word}</strong></>
+            <>⏭ Pominięto — osoba: <strong>{state.lastResult.name}</strong></>
           )}
         </div>
       )}
 
-      {state.role === 'hinter' && state.word && (
+      {state.role === 'hinter' && state.person && (
         <div className="czolko-word-card hinter">
-          <p className="czolko-word-label">Twoje słowo (nie mów go!)</p>
-          <div className="czolko-word">{state.word}</div>
-          <p className="czolko-word-hint">Opisz je słowami — bez nazwy i bez liter z odpowiedzi</p>
+          <p className="czolko-word-label">Osoba do podpowiedzenia (nie mów imienia!)</p>
+          <div className="czolko-word">{state.person.name}</div>
+          <div className="czolko-person-info">
+            <div className="czolko-person-field">
+              <span className="czolko-person-key">Wiek</span>
+              <span className="czolko-person-value">{state.person.age}</span>
+            </div>
+            <div className="czolko-person-field">
+              <span className="czolko-person-key">Narodowość</span>
+              <span className="czolko-person-value">{state.person.nationality}</span>
+            </div>
+            <div className="czolko-person-field">
+              <span className="czolko-person-key">Znany/a z</span>
+              <span className="czolko-person-value">{state.person.knownFor}</span>
+            </div>
+          </div>
+          <p className="czolko-word-hint">Opisz tę osobę słowami — bez imienia i nazwiska</p>
         </div>
       )}
 
       {state.role === 'guesser' && (
         <div className="czolko-word-card guesser">
-          <p className="czolko-word-label">Masz słowo na czole!</p>
-          <div className="czolko-blanks">
-            {Array.from({ length: state.wordLength }, (_, i) => (
-              <span key={i} className="czolko-blank">?</span>
-            ))}
-          </div>
-          <p className="czolko-word-hint">Słuchaj podpowiedzi i zgaduj</p>
+          <p className="czolko-word-label">Masz osobę na czole!</p>
+          <div className="czolko-person-silhouette">👤</div>
+          <p className="czolko-person-meta">
+            {state.wordCount} {state.wordCount === 1 ? 'słowo' : state.wordCount < 5 ? 'słowa' : 'słów'}
+            {' · '}
+            {state.nameLength} {state.nameLength === 1 ? 'litera' : state.nameLength < 5 ? 'litery' : 'liter'}
+          </p>
+          <p className="czolko-word-hint">Słuchaj podpowiedzi partnera i zgaduj kto to</p>
         </div>
       )}
 
@@ -228,7 +251,7 @@ export default function Czolko() {
               id="hint"
               className="input"
               type="text"
-              placeholder="np. pije się rano..."
+              placeholder="np. strzela gole w Barcelonie..."
               value={hintText}
               onChange={(e) => setHintText(e.target.value)}
               maxLength={120}
@@ -239,7 +262,7 @@ export default function Czolko() {
             Wyślij podpowiedź
           </button>
           <button type="button" className="btn btn-secondary" onClick={handleSkip}>
-            Pomiń słowo
+            Pomiń osobę
           </button>
         </div>
       )}
@@ -247,12 +270,12 @@ export default function Czolko() {
       {state.role === 'guesser' && (
         <div className="czolko-input-section">
           <div className="input-group">
-            <label htmlFor="guess">Twoja odpowiedź</label>
+            <label htmlFor="guess">Kto to jest?</label>
             <input
               id="guess"
               className="input"
               type="text"
-              placeholder="Wpisz słowo..."
+              placeholder="Imię i nazwisko..."
               value={guessText}
               onChange={(e) => setGuessText(e.target.value.toUpperCase())}
               maxLength={30}
