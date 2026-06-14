@@ -203,7 +203,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Pytania TAK/NIE · tura {state.round} · {playerIds.length || 2} graczy · do {state.winScore} pkt
+        {guesserName} zgaduje · tura {state.round} · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -253,10 +253,7 @@ export default function Czolko() {
           )}
           {state.lastResult.type === 'answered' && (
             <>
-              Odpowiedź: <strong>{state.lastResult.answerLabel}</strong>
-              {state.lastResult.personName && (
-                <> · osoba: <strong>{state.lastResult.personName}</strong></>
-              )}
+              Odpowiedź na „{state.lastResult.question}": <strong>{state.lastResult.answerLabel}</strong>
             </>
           )}
         </div>
@@ -264,7 +261,9 @@ export default function Czolko() {
 
       {state.role === 'hinter' && state.person && (
         <div className="czolko-word-card hinter">
-          <p className="czolko-word-label">Widzisz kartę — odpowiadaj tylko TAK, NIE lub ŹLE PYTANIE</p>
+          <p className="czolko-word-label">
+            {guesserName} ma tę osobę na czole — odpowiadaj TAK, NIE lub ŹLE PYTANIE
+          </p>
           <div className="czolko-word">{state.person.name}</div>
           <div className="czolko-person-info">
             <div className="czolko-person-field">
@@ -295,7 +294,7 @@ export default function Czolko() {
           <p className="czolko-word-hint">
             {state.phase === 'answering'
               ? 'Czekasz na odpowiedź...'
-              : 'Zadaj pytanie TAK/NIE lub zgadnij kto to'}
+              : 'Zadawaj pytania TAK/NIE, aż zgadniesz kto to'}
           </p>
         </div>
       )}
@@ -392,8 +391,8 @@ export default function Czolko() {
       {state.role === 'hinter' && !canAnswer && (
         <p className="czolko-waiting-hint">
           {state.phase === 'answering'
-            ? 'Inny gracz może odpowiedzieć...'
-            : 'Czekaj, aż zgadujący zada pytanie...'}
+            ? 'Odpowiedz na pytanie zgadującego...'
+            : `${guesserName} zgaduje tę samą osobę — czekaj na kolejne pytanie`}
         </p>
       )}
 

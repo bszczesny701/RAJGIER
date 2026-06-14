@@ -230,14 +230,17 @@ function tryAnswerQuestion(state, playerId, answer, playerIds) {
   const guesserId = state.pendingQuestion.guesserId;
   const questionText = state.pendingQuestion.text;
 
-  advanceTurn(state, playerIds, {
+  // Po odpowiedzi zgadujący dalej zgaduje tę samą osobę — tura zmienia się dopiero po trafieniu lub pominięciu
+  state.pendingQuestion = null;
+  state.phase = 'asking';
+  state.lastResult = {
     type: 'answered',
     answer,
     question: questionText,
     personName,
     guesserId,
     answeredBy: playerId,
-  });
+  };
 
   return { success: true, answer };
 }
