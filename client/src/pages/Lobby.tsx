@@ -1,7 +1,53 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { getGameLabel, getGameRoute } from '../lib/gameRoutes';
+import {
+  getGameLabel,
+  getGameRoute,
+  canStartGame,
+  getGamePlayerRangeLabel,
+  MAX_ROOM_PLAYERS,
+  type GameId,
+} from '../lib/gameRoutes';
+
+function GameOptionButton({
+  game,
+  playerCount,
+  onSelect,
+}: {
+  game: GameId;
+  playerCount: number;
+  onSelect: (game: GameId) => void;
+}) {
+  const enabled = canStartGame(game, playerCount);
+  const range = getGamePlayerRangeLabel(game);
+
+  const meta: Record<GameId, { emoji: string; title: string; desc: string }> = {
+    battleship: { emoji: '🚢', title: 'Statki', desc: 'Zatop flotę rywala' },
+    wordsearch: { emoji: '🔍', title: 'Wykreślanka', desc: 'Kto pierwszy znajdzie słowa' },
+    crossword: { emoji: '📝', title: 'Krzyżówka', desc: 'Kto więcej haseł odgadnie' },
+    sudoku: { emoji: '🔢', title: 'Sudoku', desc: 'Kto szybciej ułoży' },
+    unos: { emoji: '🃏', title: 'UNOS', desc: 'Pojedynek kart' },
+    czolko: { emoji: '🎯', title: 'Czółko', desc: 'Zgaduj słynne osoby' },
+  };
+
+  const info = meta[game];
+
+  return (
+    <button
+      type="button"
+      className={`game-option${enabled ? '' : ' disabled'}`}
+      onClick={() => enabled && onSelect(game)}
+      disabled={!enabled}
+      title={enabled ? undefined : `Wymaga: ${range}`}
+    >
+      <span className="emoji">{info.emoji}</span>
+      <h3>{info.title}</h3>
+      <p>{info.desc}</p>
+      <span className="game-option-range">{range}</span>
+    </button>
+  );
+}
 
 export default function Lobby() {
   const navigate = useNavigate();
@@ -17,7 +63,8 @@ export default function Lobby() {
   } = useGame();
 
   const isHost = room?.hostId === playerId;
-  const canStart = room && room.players.length === 2;
+  const playerCount = room?.players.length ?? 0;
+  const canStart = room && playerCount >= 2;
   const gameRoute = getGameRoute(room?.game);
 
   useEffect(() => {
@@ -60,11 +107,15 @@ export default function Lobby() {
 
       <div className="card">
         <div className="room-code">
-          <span>Kod pokoju — wyślij partnerowi</span>
+          <span>Kod pokoju — wyślij znajomym</span>
           <strong>{room.code}</strong>
         </div>
 
-        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 8 }}>Gracze</h3>
+        <p className="lobby-player-count">
+          Gracze: {playerCount}/{MAX_ROOM_PLAYERS}
+        </p>
+
+        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 8 }}>W pokoju</h3>
         <ul className="player-list">
           {room.players.map((p) => (
             <li key={p.id}>
@@ -77,10 +128,15 @@ export default function Lobby() {
               )}
             </li>
           ))}
-          {room.players.length < 2 && (
+          {playerCount < 2 && (
             <li style={{ color: 'var(--text-muted)', fontSize: '0.85rem', paddingTop: 12 }}>
               <span className="spinner" style={{ animation: 'pulse 1.5s infinite' }}>⏳</span>
-              Oczekiwanie na partnera...
+              Oczekiwanie na graczy (min. 2)...
+            </li>
+          )}
+          {playerCount >= 2 && playerCount < MAX_ROOM_PLAYERS && (
+            <li style={{ color: 'var(--text-muted)', fontSize: '0.85rem', paddingTop: 12 }}>
+              Możesz czekać na więcej graczy (Czółko i UNOS: do {MAX_ROOM_PLAYERS})
             </li>
           )}
         </ul>
@@ -90,63 +146,15 @@ export default function Lobby() {
         <div className="card">
           <h3 style={{ fontSize: '0.95rem', marginBottom: 4 }}>Wybierz grę</h3>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
-            Tylko gospodarz wybiera grę
+            Tylko gospodarz wybiera grę · {playerCount} graczy w pokoju
           </p>
           <div className="game-grid">
-            <button
-              type="button"
-              className="game-option"
-              onClick={() => selectGame('battleship')}
-            >
-              <span className="emoji">🚢</span>
-              <h3>Statki</h3>
-              <p>Zatop flotę rywala</p>
-            </button>
-            <button
-              type="button"
-              className="game-option"
-              onClick={() => selectGame('wordsearch')}
-            >
-              <span className="emoji">🔍</span>
-              <h3>Wykreślanka</h3>
-              <p>Kto pierwszy znajdzie słowa</p>
-            </button>
-            <button
-              type="button"
-              className="game-option"
-              onClick={() => selectGame('crossword')}
-            >
-              <span className="emoji">📝</span>
-              <h3>Krzyżówka</h3>
-              <p>Kto więcej haseł odgadnie</p>
-            </button>
-            <button
-              type="button"
-              className="game-option"
-              onClick={() => selectGame('sudoku')}
-            >
-              <span className="emoji">🔢</span>
-              <h3>Sudoku</h3>
-              <p>Kto szybciej ułoży</p>
-            </button>
-            <button
-              type="button"
-              className="game-option"
-              onClick={() => selectGame('unos')}
-            >
-              <span className="emoji">🃏</span>
-              <h3>UNOS</h3>
-              <p>Pojedynek kart 1 na 1</p>
-            </button>
-            <button
-              type="button"
-              className="game-option"
-              onClick={() => selectGame('czolko')}
-            >
-              <span className="emoji">🎯</span>
-              <h3>Czółko</h3>
-              <p>Zgaduj słynne osoby</p>
-            </button>
+            <GameOptionButton game="battleship" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="wordsearch" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="crossword" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="sudoku" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="unos" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="czolko" playerCount={playerCount} onSelect={selectGame} />
           </div>
         </div>
       )}
@@ -179,7 +187,7 @@ export default function Lobby() {
             </h2>
             <p>
               {gameOver.forfeit
-                ? 'Partner opuścił grę'
+                ? 'Ktoś opuścił grę'
                 : gameOver.draw
                   ? 'Macie tyle samo punktów!'
                   : gameOver.game === 'battleship'

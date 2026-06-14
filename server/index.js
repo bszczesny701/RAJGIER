@@ -58,6 +58,16 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
+const MAX_ROOM_PLAYERS = 4;
+
+const GAME_PLAYER_LIMITS = {
+  battleship: { min: 2, max: 2 },
+  wordsearch: { min: 2, max: 2 },
+  crossword: { min: 2, max: 2 },
+  sudoku: { min: 2, max: 2 },
+  unos: { min: 2, max: 4 },
+  czolko: { min: 2, max: 4 },
+};
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -169,19 +179,19 @@ function buildSudokuPayload(room, playerId) {
 
 function buildUnosPayload(room, playerId) {
   const player = room.players.find((p) => p.id === playerId);
-  const opponentId = getOpponent(room, playerId);
+  const playerIds = room.players.map((p) => p.id);
+  const playerNames = Object.fromEntries(room.players.map((p) => [p.id, p.name]));
   return {
-    ...getPublicUnosState(room.gameState, playerId, opponentId),
-    opponentName: room.players.find((p) => p.id === opponentId)?.name,
+    ...getPublicUnosState(room.gameState, playerId, playerIds, playerNames),
     myName: player?.name,
   };
 }
 
 function buildCzolkoPayload(room, playerId) {
   const player = room.players.find((p) => p.id === playerId);
+  const playerNames = Object.fromEntries(room.players.map((p) => [p.id, p.name]));
   return {
-    ...getPublicCzolkoState(room.gameState, playerId),
-    opponentName: room.players.find((p) => p.id !== playerId)?.name,
+    ...getPublicCzolkoState(room.gameState, playerId, playerNames),
     myName: player?.name,
     myId: playerId,
   };
@@ -356,8 +366,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    if (room.players.length >= 2) {
-      callback?.({ success: false, error: 'Pokój jest pełny' });
+    if (room.players.length >= MAX_ROOM_PLAYERS) {
+      callback?.({ success: false, error: `Pokój jest pełny (max ${MAX_ROOM_PLAYERS} graczy)` });
       return;
     }
 
@@ -383,6 +393,17 @@ io.on('connection', (socket) => {
     if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
     if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos', 'czolko'].includes(game)) return;
+
+    const limits = GAME_PLAYER_LIMITS[game];
+    const count = room.players.length;
+    if (!limits || count < limits.min || count > limits.max) {
+      socket.emit('error', {
+        message: limits
+          ? `Ta gra wymaga ${limits.min === limits.max ? limits.min : `${limits.min}–${limits.max}`} graczy`
+          : 'Nie można rozpocząć gry',
+      });
+      return;
+    }
 
     currentRoom = code;
     startGame(room, game);

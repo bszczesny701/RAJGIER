@@ -5,6 +5,8 @@ import { useGame } from '../context/GameContext';
 interface Hint {
   text: string;
   time: number;
+  playerId: string;
+  playerName: string;
 }
 
 interface PersonInfo {
@@ -25,8 +27,8 @@ interface RoundResult {
 interface CzolkoState {
   round: number;
   guesserId: string;
-  hinterId: string;
-  role: 'guesser' | 'hinter' | 'spectator';
+  playerIds: string[];
+  role: 'guesser' | 'hinter';
   person: PersonInfo | null;
   nameLength: number;
   wordCount: number;
@@ -36,8 +38,8 @@ interface CzolkoState {
   winner: string | null;
   winScore: number;
   startTime: number;
+  playerNames: Record<string, string>;
   myName: string;
-  opponentName: string;
   myId: string;
 }
 
@@ -83,18 +85,6 @@ export default function Czolko() {
     return () => { socket.off('czolkoUpdate', handler); };
   }, [socket, room, requestGameState]);
 
-  const opponentId = state && playerId
-    ? Object.keys(state.scores).find((id) => id !== playerId)
-    : null;
-
-  const guesserName = state?.guesserId === playerId
-    ? state.myName
-    : state?.opponentName;
-
-  const hinterName = state?.hinterId === playerId
-    ? state.myName
-    : state?.opponentName;
-
   const handleSendHint = () => {
     if (!socket || !hintText.trim()) return;
     socket.emit('czolkoSendHint', {
@@ -132,6 +122,10 @@ export default function Czolko() {
   const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
+  const guesserName = state.playerNames[state.guesserId] || 'Gracz';
+  const hinterNames = state.playerIds
+    .filter((id) => id !== state.guesserId)
+    .map((id) => state.playerNames[id] || 'Gracz');
 
   return (
     <div className="page czolko-page">
@@ -143,7 +137,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Runda {state.round} · zgaduj osoby · do {state.winScore} pkt
+        Runda {state.round} · {state.playerIds.length} graczy · do {state.winScore} pkt
       </p>
 
       {error && (
@@ -153,19 +147,17 @@ export default function Czolko() {
         </div>
       )}
 
-      <div className="score-bar">
-        <div className="score-item">
-          <div className="label">{state.myName}</div>
-          <div className="value">{state.scores[playerId || ''] || 0}</div>
-        </div>
-        <div className="score-item">
-          <div className="label">vs</div>
-          <div className="value" style={{ fontSize: '1rem', color: 'var(--text-muted)' }}>⚔️</div>
-        </div>
-        <div className="score-item">
-          <div className="label">{state.opponentName}</div>
-          <div className="value">{opponentId ? (state.scores[opponentId] || 0) : 0}</div>
-        </div>
+      <div className={`czolko-scores-grid cols-${Math.min(state.playerIds.length, 4)}`}>
+        {state.playerIds.map((id) => (
+          <div
+            key={id}
+            className={`czolko-score-item${id === playerId ? ' me' : ''}${id === state.guesserId ? ' guessing' : ''}`}
+          >
+            <div className="label">{state.playerNames[id] || 'Gracz'}</div>
+            <div className="value">{state.scores[id] || 0}</div>
+            {id === state.guesserId && <span className="czolko-score-badge">zgaduje</span>}
+          </div>
+        ))}
       </div>
 
       <div className="czolko-roles">
@@ -176,11 +168,11 @@ export default function Czolko() {
             <div className="czolko-role-name">{guesserName}</div>
           </div>
         </div>
-        <div className={`czolko-role ${state.hinterId === playerId ? 'active' : ''}`}>
+        <div className={`czolko-role ${state.role === 'hinter' ? 'active' : ''}`}>
           <span className="czolko-role-icon">💡</span>
           <div>
-            <div className="czolko-role-label">Podpowiada</div>
-            <div className="czolko-role-name">{hinterName}</div>
+            <div className="czolko-role-label">Podpowiadają</div>
+            <div className="czolko-role-name">{hinterNames.join(', ')}</div>
           </div>
         </div>
       </div>
@@ -226,7 +218,7 @@ export default function Czolko() {
             {' · '}
             {state.nameLength} {state.nameLength === 1 ? 'litera' : state.nameLength < 5 ? 'litery' : 'liter'}
           </p>
-          <p className="czolko-word-hint">Słuchaj podpowiedzi partnera i zgaduj kto to</p>
+          <p className="czolko-word-hint">Słuchaj podpowiedzi i zgaduj kto to</p>
         </div>
       )}
 
@@ -237,7 +229,9 @@ export default function Czolko() {
         ) : (
           <ul>
             {state.hints.map((hint, idx) => (
-              <li key={`${hint.time}-${idx}`}>{hint.text}</li>
+              <li key={`${hint.time}-${idx}`}>
+                <span className="czolko-hint-author">{hint.playerName}:</span> {hint.text}
+              </li>
             ))}
           </ul>
         )}

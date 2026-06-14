@@ -32,7 +32,7 @@ export default function Home() {
       <div className="logo">
         <span className="logo-icon">🎮</span>
         <h1>RAJ GIER</h1>
-        <p>Gry dla dwojga — rywalizujcie i bawcie się!</p>
+        <p>Gry online — od 2 do 4 graczy w pokoju</p>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 16, fontSize: '0.85rem', color: 'var(--text-muted)' }}>

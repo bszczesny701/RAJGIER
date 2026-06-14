@@ -1753,3 +1753,117 @@ body {
   font-weight: 600;
   margin-bottom: 4px;
 }
+
+.czolko-scores-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.czolko-scores-grid.cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.czolko-scores-grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.czolko-scores-grid.cols-4 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.czolko-score-item {
+  text-align: center;
+  padding: 10px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  position: relative;
+}
+
+.czolko-score-item.me {
+  border-color: rgba(255, 215, 0, 0.35);
+}
+
+.czolko-score-item.guessing {
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.czolko-score-item .label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.czolko-score-item .value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+}
+
+.czolko-score-badge {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+  letter-spacing: 0.04em;
+}
+
+.czolko-hint-author {
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-right: 4px;
+}
+
+.lobby-player-count {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.game-option-range {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.game-option.disabled,
+.game-option:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.unos-opponents {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.unos-opponent-row {
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.unos-opponent-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.unos-hand-overflow {
+  align-self: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+}

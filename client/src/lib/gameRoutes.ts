@@ -1,5 +1,21 @@
 export type GameId = 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko';
 
+export const MAX_ROOM_PLAYERS = 4;
+
+export interface GamePlayerLimits {
+  min: number;
+  max: number;
+}
+
+export const GAME_PLAYER_LIMITS: Record<GameId, GamePlayerLimits> = {
+  battleship: { min: 2, max: 2 },
+  wordsearch: { min: 2, max: 2 },
+  crossword: { min: 2, max: 2 },
+  sudoku: { min: 2, max: 2 },
+  unos: { min: 2, max: 4 },
+  czolko: { min: 2, max: 4 },
+};
+
 const GAME_ROUTES: Record<GameId, string> = {
   battleship: '/statki',
   wordsearch: '/wykreslanka',
@@ -31,4 +47,15 @@ export function getGameLabel(game: GameId | null | undefined): string {
 export function getGameIdFromPath(pathname: string): GameId | null {
   const entry = Object.entries(GAME_ROUTES).find(([, route]) => route === pathname);
   return (entry?.[0] as GameId) ?? null;
+}
+
+export function canStartGame(game: GameId, playerCount: number): boolean {
+  const limits = GAME_PLAYER_LIMITS[game];
+  return playerCount >= limits.min && playerCount <= limits.max;
+}
+
+export function getGamePlayerRangeLabel(game: GameId): string {
+  const { min, max } = GAME_PLAYER_LIMITS[game];
+  if (min === max) return `${min} graczy`;
+  return `${min}–${max} graczy`;
 }

@@ -12,14 +12,22 @@ interface Card {
   value: number | null;
 }
 
+interface OtherPlayer {
+  id: string;
+  name: string;
+  handCount: number;
+}
+
 interface UnosState {
   phase: string;
   currentTurn: string | null;
+  currentTurnName: string;
   topCard: Card | null;
   activeColor: CardColor | null;
   wildColor: CardColor | null;
   myHand: Card[];
-  opponentHandCount: number;
+  otherPlayers: OtherPlayer[];
+  playerCount: number;
   deckCount: number;
   playableCardIds: string[];
   canPlayDrawnCardId: string | null;
@@ -29,7 +37,6 @@ interface UnosState {
   winner: string | null;
   colors: CardColor[];
   colorLabels: Record<string, string>;
-  opponentName: string;
   myName: string;
 }
 
@@ -192,7 +199,7 @@ export default function Unos() {
       <div className="game-header">
         <h2>🃏 UNOS</h2>
         <span className={`turn-indicator ${isMyTurn ? 'my-turn' : 'opponent-turn'}`}>
-          {isMyTurn ? 'Twój ruch' : `Ruch: ${state.opponentName}`}
+          {isMyTurn ? 'Twój ruch' : `Ruch: ${state.currentTurnName}`}
         </span>
       </div>
 
@@ -206,7 +213,7 @@ export default function Unos() {
       <div className="unos-info-bar">
         <span>Kolor gry: <strong style={{ color: COLOR_STYLES[state.activeColor || 'red']?.bg }}>{activeColorLabel}</strong></span>
         <span>Talia: {state.deckCount}</span>
-        <span>{state.opponentName}: {state.opponentHandCount} kart</span>
+        <span>{state.playerCount} graczy</span>
       </div>
 
       {state.myHand.length === 2 && isMyTurn && (
@@ -220,9 +227,23 @@ export default function Unos() {
       )}
 
       <div className="unos-table">
-        <div className="unos-opponent-hand">
-          {Array.from({ length: state.opponentHandCount }, (_, i) => (
-            <div key={i} className="unos-card-back" />
+        <div className="unos-opponents">
+          {state.otherPlayers.map((opponent) => (
+            <div key={opponent.id} className="unos-opponent-row">
+              <span className="unos-opponent-label">
+                {opponent.name}
+                {opponent.id === state.currentTurn ? ' · ruch' : ''}
+                : {opponent.handCount} kart
+              </span>
+              <div className="unos-opponent-hand">
+                {Array.from({ length: Math.min(opponent.handCount, 12) }, (_, i) => (
+                  <div key={i} className="unos-card-back" />
+                ))}
+                {opponent.handCount > 12 && (
+                  <span className="unos-hand-overflow">+{opponent.handCount - 12}</span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
 
@@ -263,7 +284,7 @@ export default function Unos() {
           <div className="unos-modal">
             <div className="emoji-big">🃏</div>
             <h2>Została 1 karta!</h2>
-            <p>Kliknij UNOS!, zanim przeciwnik zagra.</p>
+            <p>Kliknij UNOS!, zanim ktoś zagra.</p>
             <button type="button" className="btn btn-primary unos-call-btn" onClick={callUnos}>
               🃏 UNOS!
             </button>

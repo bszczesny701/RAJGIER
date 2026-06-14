@@ -132,11 +132,9 @@ function pickNextPerson(state) {
   state.lastResult = null;
 }
 
-function swapRoles(state, playerIds) {
+function advanceGuesser(state, playerIds) {
   const guesserIdx = playerIds.indexOf(state.guesserId);
-  const nextGuesser = playerIds[(guesserIdx + 1) % playerIds.length];
-  state.guesserId = nextGuesser;
-  state.hinterId = playerIds.find((id) => id !== nextGuesser);
+  state.guesserId = playerIds[(guesserIdx + 1) % playerIds.length];
   state.round += 1;
 }
 
@@ -151,21 +149,19 @@ function checkWinner(state) {
 
 function createCzolkoState(playerIds) {
   const personPool = shuffle(PEOPLE);
-  const guesserId = playerIds[0];
-  const hinterId = playerIds[1];
 
   const state = {
     personPool,
     currentPerson: null,
     round: 1,
-    guesserId,
-    hinterId,
+    guesserId: playerIds[0],
     hints: [],
     scores: {},
     lastResult: null,
     winner: null,
     winScore: WIN_SCORE,
     startTime: Date.now(),
+    playerIds,
   };
 
   for (const id of playerIds) {
@@ -186,13 +182,15 @@ function finishRound(state, playerIds, result) {
   checkWinner(state);
   if (state.winner) return;
 
-  swapRoles(state, playerIds);
+  advanceGuesser(state, playerIds);
   pickNextPerson(state);
 }
 
 function trySendHint(state, playerId, text) {
   if (state.winner) return { success: false, reason: 'Gra zakończona' };
-  if (playerId !== state.hinterId) return { success: false, reason: 'Tylko podpowiadający może wysłać podpowiedź' };
+  if (playerId === state.guesserId) {
+    return { success: false, reason: 'Zgadujący nie może podpowiadać' };
+  }
 
   const hint = (text || '').trim().slice(0, 120);
   if (!hint) return { success: false, reason: 'Wpisz podpowiedź' };
@@ -201,7 +199,7 @@ function trySendHint(state, playerId, text) {
     return { success: false, reason: 'Nie możesz użyć imienia ani nazwiska!' };
   }
 
-  state.hints.push({ text: hint, time: Date.now() });
+  state.hints.push({ text: hint, time: Date.now(), playerId });
   return { success: true };
 }
 
@@ -228,7 +226,7 @@ function tryGuess(state, playerId, guess, playerIds) {
 
 function trySkip(state, playerId, playerIds) {
   if (state.winner) return { success: false, reason: 'Gra zakończona' };
-  if (playerId !== state.guesserId && playerId !== state.hinterId) {
+  if (!playerIds.includes(playerId)) {
     return { success: false, reason: 'Nie jesteś w tej rundzie' };
   }
 
@@ -257,17 +255,16 @@ function getPersonMeta(person) {
   };
 }
 
-function getPublicCzolkoState(state, playerId) {
+function getPublicCzolkoState(state, playerId, playerNames = {}) {
   const isGuesser = playerId === state.guesserId;
-  const isHinter = playerId === state.hinterId;
   const meta = getPersonMeta(state.currentPerson);
 
   return {
     round: state.round,
     guesserId: state.guesserId,
-    hinterId: state.hinterId,
-    role: isGuesser ? 'guesser' : isHinter ? 'hinter' : 'spectator',
-    person: isHinter ? {
+    playerIds: state.playerIds,
+    role: isGuesser ? 'guesser' : 'hinter',
+    person: !isGuesser ? {
       name: state.currentPerson.name,
       age: state.currentPerson.age,
       nationality: state.currentPerson.nationality,
@@ -275,12 +272,18 @@ function getPublicCzolkoState(state, playerId) {
     } : null,
     nameLength: meta.nameLength,
     wordCount: meta.wordCount,
-    hints: state.hints,
+    hints: state.hints.map((hint) => ({
+      text: hint.text,
+      time: hint.time,
+      playerId: hint.playerId,
+      playerName: playerNames[hint.playerId] || 'Gracz',
+    })),
     scores: state.scores,
     lastResult: state.lastResult,
     winner: state.winner,
     winScore: state.winScore,
     startTime: state.startTime,
+    playerNames,
   };
 }
 

@@ -88,6 +88,45 @@ function nextPlayer(state, playerIds, steps = 1) {
   return playerIds[(idx + steps) % playerIds.length];
 }
 
+function isTwoPlayer(playerIds) {
+  return playerIds.length === 2;
+}
+
+function endTurn(state, playerIds) {
+  state.currentTurn = nextPlayer(state, playerIds, 1);
+}
+
+function applySpecialCardTurn(state, playerIds, cardType, actingPlayerId) {
+  if (isTwoPlayer(playerIds)) {
+    if (cardType === 'draw2') {
+      const opponentId = playerIds.find((id) => id !== actingPlayerId);
+      state.hands[opponentId].push(...drawFromDeck(state, 2));
+      state.lastAction = { ...state.lastAction, target: opponentId };
+      return;
+    }
+    if (cardType === 'skip') {
+      return;
+    }
+    endTurn(state, playerIds);
+    return;
+  }
+
+  if (cardType === 'draw2') {
+    const targetId = nextPlayer(state, playerIds, 1);
+    state.hands[targetId].push(...drawFromDeck(state, 2));
+    state.currentTurn = nextPlayer(state, playerIds, 2);
+    state.lastAction = { ...state.lastAction, target: targetId };
+    return;
+  }
+
+  if (cardType === 'skip') {
+    state.currentTurn = nextPlayer(state, playerIds, 2);
+    return;
+  }
+
+  endTurn(state, playerIds);
+}
+
 function dealOpening(state, playerIds) {
   state.deck = shuffle(buildDeck());
 
@@ -156,19 +195,11 @@ function applyUnosPenaltyIfNeeded(state, playerId) {
 }
 
 function penalizeForgottenUnos(state, playerIds, actingPlayerId) {
-  const opponentId = playerIds.find((id) => id !== actingPlayerId);
-  if (opponentId) {
-    applyUnosPenaltyIfNeeded(state, opponentId);
+  for (const id of playerIds) {
+    if (id !== actingPlayerId) {
+      applyUnosPenaltyIfNeeded(state, id);
+    }
   }
-}
-
-function endTurn(state, playerIds) {
-  const opponentId = playerIds.find((id) => id !== state.currentTurn);
-  state.currentTurn = opponentId;
-}
-
-function keepTurn() {
-  // Gracz zostaje na turze (skip / +2 w grze dla 2 osób)
 }
 
 function checkWinner(state, playerId) {
@@ -237,16 +268,14 @@ function playCard(state, playerId, cardId, chosenColor, playerIds) {
   }
 
   if (card.type === 'draw2') {
-    const opponentId = playerIds.find((id) => id !== playerId);
-    state.hands[opponentId].push(...drawFromDeck(state, 2));
-    state.lastAction = { type: 'draw2', playerId, card, target: opponentId };
-    keepTurn();
+    state.lastAction = { type: 'draw2', playerId, card };
+    applySpecialCardTurn(state, playerIds, 'draw2', playerId);
   } else if (card.type === 'skip') {
     state.lastAction = { type: 'skip', playerId, card };
-    keepTurn();
+    applySpecialCardTurn(state, playerIds, 'skip', playerId);
   } else {
     state.lastAction = { type: 'play', playerId, card };
-    endTurn(state, playerIds);
+    applySpecialCardTurn(state, playerIds, 'play', playerId);
   }
 
   return { valid: true };
@@ -285,7 +314,7 @@ function finalizeWildColor(state, playerId, chosenColor, playerIds) {
   }
 
   state.lastAction = { type: 'play', playerId, card, wildColor: chosenColor };
-  endTurn(state, playerIds);
+  applySpecialCardTurn(state, playerIds, 'play', playerId);
 
   return { valid: true };
 }
@@ -352,18 +381,28 @@ function serializeCard(card) {
   };
 }
 
-function getPublicUnosState(state, playerId, opponentId) {
+function getPublicUnosState(state, playerId, playerIds, playerNames = {}) {
   const top = getTopCard(state);
   const myHand = state.hands[playerId] || [];
+
+  const otherPlayers = playerIds
+    .filter((id) => id !== playerId)
+    .map((id) => ({
+      id,
+      name: playerNames[id] || 'Gracz',
+      handCount: (state.hands[id] || []).length,
+    }));
 
   return {
     phase: state.phase,
     currentTurn: state.currentTurn,
+    currentTurnName: playerNames[state.currentTurn] || 'Gracz',
     topCard: top ? serializeCard(top) : null,
     activeColor: getActiveColor(state),
     wildColor: state.wildColor,
     myHand: myHand.map(serializeCard),
-    opponentHandCount: (state.hands[opponentId] || []).length,
+    otherPlayers,
+    playerCount: playerIds.length,
     deckCount: state.deck.length,
     playableCardIds: myHand.filter((c) => cardMatches(state, c)).map((c) => c.id),
     canPlayDrawnCardId: state.pendingDrawPlay[playerId] || null,
@@ -374,6 +413,7 @@ function getPublicUnosState(state, playerId, opponentId) {
     lastAction: state.lastAction,
     colors: COLORS,
     colorLabels: COLOR_LABELS,
+    playerNames,
   };
 }
 
