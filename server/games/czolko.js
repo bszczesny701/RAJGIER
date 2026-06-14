@@ -404,7 +404,7 @@ function getPublicCzolkoState(state, playerId, playerNames = {}, playerIds = [])
   const myPerson = getPlayerPerson(state, playerId);
   const displayPerson = isGuesser ? myPerson : guesserPerson;
   const meta = getPersonMeta(displayPerson);
-  const activeQaLog = state.qaLogByPlayer?.[state.guesserId] || [];
+  const activeQaLog = state.qaLogByPlayer?.[playerId] || [];
 
   return {
     round: state.round || 1,

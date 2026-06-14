@@ -321,9 +321,9 @@ export default function Czolko() {
       )}
 
       <div className="czolko-hints">
-        <h3>Historia pytań</h3>
+        <h3>Twoja historia pytań</h3>
         {qaLog.length === 0 ? (
-          <p className="czolko-hints-empty">Jeszcze brak pytań w tej turze...</p>
+          <p className="czolko-hints-empty">Jeszcze nie zadałeś/aś pytań o swoją postać...</p>
         ) : (
           <ul className="czolko-qa-list">
             {qaLog.map((entry, idx) => (
