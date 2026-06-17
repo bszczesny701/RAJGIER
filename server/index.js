@@ -43,6 +43,8 @@ const {
   tryGuess,
   trySkip,
   getPublicCzolkoState,
+  getPeopleForPool,
+  normalizeCharacterPool,
 } = require('./games/czolko');
 
 const app = express();
@@ -269,7 +271,7 @@ function emitCzolkoUpdate(room) {
   }
 }
 
-function startGame(room, game) {
+function startGame(room, game, gameOptions = {}) {
   room.game = game;
   room.status = 'playing';
 
@@ -295,7 +297,7 @@ function startGame(room, game) {
     room.gameState = createUnosState(room.players.map((p) => p.id));
     emitUnosUpdate(room);
   } else if (game === 'czolko') {
-    room.gameState = createCzolkoState(room.players.map((p) => p.id));
+    room.gameState = createCzolkoState(room.players.map((p) => p.id), gameOptions);
     emitCzolkoUpdate(room);
   }
 
@@ -387,7 +389,7 @@ io.on('connection', (socket) => {
     emitRoomUpdate(room);
   });
 
-  socket.on('selectGame', ({ game, sessionId, roomCode }) => {
+  socket.on('selectGame', ({ game, sessionId, roomCode, gameOptions }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
       roomCode,
@@ -407,8 +409,19 @@ io.on('connection', (socket) => {
       return;
     }
 
+    let options = {};
+    if (game === 'czolko') {
+      const characterPool = normalizeCharacterPool(gameOptions?.characterPool);
+      const poolSize = getPeopleForPool(characterPool).length;
+      if (poolSize < count) {
+        socket.emit('error', { message: 'Za mało postaci w wybranej puli dla liczby graczy' });
+        return;
+      }
+      options = { characterPool };
+    }
+
     currentRoom = code;
-    startGame(room, game);
+    startGame(room, game, options);
   });
 
   socket.on('placeShips', ({ ships, sessionId, roomCode }) => {

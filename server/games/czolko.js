@@ -1,5 +1,15 @@
 const WIN_SCORE = 5;
 
+const CHARACTER_POOLS = {
+  all: 'all',
+  poland: 'poland',
+};
+
+const CHARACTER_POOL_LABELS = {
+  all: 'Wszystkie postacie',
+  poland: 'Tylko z Polski',
+};
+
 const PEOPLE = [
   { name: 'ROBERT LEWANDOWSKI', age: '36 lat', nationality: 'Polska', knownFor: 'Piłkarz' },
   { name: 'LIONEL MESSI', age: '37 lat', nationality: 'Argentyna', knownFor: 'Piłkarz' },
@@ -303,6 +313,18 @@ const PEOPLE = [
   { name: 'TOM HIDDLESTON', age: '43 lata', nationality: 'Wielka Brytania', knownFor: 'Aktor' },
 ];
 
+function normalizeCharacterPool(pool) {
+  return pool === CHARACTER_POOLS.poland ? CHARACTER_POOLS.poland : CHARACTER_POOLS.all;
+}
+
+function getPeopleForPool(characterPool = CHARACTER_POOLS.all) {
+  const pool = normalizeCharacterPool(characterPool);
+  if (pool === CHARACTER_POOLS.poland) {
+    return PEOPLE.filter((person) => person.nationality === 'Polska');
+  }
+  return PEOPLE;
+}
+
 const VALID_ANSWERS = ['yes', 'no', 'bad'];
 
 function shuffle(arr) {
@@ -374,8 +396,9 @@ function getUsedPersonNames(state, exceptPlayerId = null) {
 }
 
 function refillPersonPool(state) {
+  const source = getPeopleForPool(state.characterPool);
   if (!state.personPool || state.personPool.length === 0) {
-    state.personPool = shuffle(PEOPLE);
+    state.personPool = shuffle(source);
   }
 }
 
@@ -384,11 +407,12 @@ function pickPersonForPlayer(state, playerId) {
   if (!state.playerPersons) state.playerPersons = {};
   if (!state.qaLogByPlayer) state.qaLogByPlayer = {};
 
+  const source = getPeopleForPool(state.characterPool);
   const usedNames = getUsedPersonNames(state, playerId);
   let person = null;
   let attempts = 0;
 
-  while (attempts < PEOPLE.length) {
+  while (attempts < source.length * 2) {
     refillPersonPool(state);
     person = state.personPool.pop();
     if (!usedNames.has(person.name)) break;
@@ -437,9 +461,12 @@ function checkWinner(state) {
   }
 }
 
-function createCzolkoState(playerIds) {
+function createCzolkoState(playerIds, options = {}) {
+  const characterPool = normalizeCharacterPool(options.characterPool);
+
   const state = {
-    personPool: shuffle(PEOPLE),
+    characterPool,
+    personPool: shuffle(getPeopleForPool(characterPool)),
     playerPersons: {},
     qaLogByPlayer: {},
     round: 1,
@@ -605,8 +632,11 @@ function normalizeCzolkoState(state, playerIds = []) {
   if (!state.scores) {
     state.scores = {};
   }
+  if (!state.characterPool) {
+    state.characterPool = CHARACTER_POOLS.all;
+  }
   if (!state.personPool || !state.personPool.length) {
-    state.personPool = shuffle(PEOPLE);
+    state.personPool = shuffle(getPeopleForPool(state.characterPool));
   }
   if (!state.phase) {
     state.phase = state.pendingQuestion ? 'answering' : 'asking';
@@ -683,6 +713,8 @@ function getPublicCzolkoState(state, playerId, playerNames = {}, playerIds = [])
     winner: state.winner,
     winScore: state.winScore || WIN_SCORE,
     startTime: state.startTime || Date.now(),
+    characterPool: state.characterPool || CHARACTER_POOLS.all,
+    characterPoolLabel: CHARACTER_POOL_LABELS[state.characterPool] || CHARACTER_POOL_LABELS.all,
     playerNames,
     answerLabels: ANSWER_LABELS,
   };
@@ -695,6 +727,10 @@ module.exports = {
   tryGuess,
   trySkip,
   getPublicCzolkoState,
+  getPeopleForPool,
+  normalizeCharacterPool,
+  CHARACTER_POOLS,
+  CHARACTER_POOL_LABELS,
   WIN_SCORE,
   PEOPLE,
 };

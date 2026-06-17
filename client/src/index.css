@@ -1841,6 +1841,68 @@ body {
   cursor: not-allowed;
 }
 
+.czolko-game-option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  cursor: default;
+}
+
+.czolko-game-option .emoji,
+.czolko-game-option h3,
+.czolko-game-option > p,
+.czolko-game-option .game-option-range {
+  text-align: center;
+}
+
+.czolko-pool-settings {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.czolko-pool-label {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.czolko-pool-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.czolko-pool-choice.active {
+  border-color: rgba(255, 215, 0, 0.45);
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.czolko-pool-choice input {
+  accent-color: var(--accent-gold);
+}
+
+.czolko-start-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.czolko-game-option.disabled .czolko-pool-choice {
+  cursor: not-allowed;
+}
+
 .unos-opponents {
   display: flex;
   flex-direction: column;

@@ -35,6 +35,12 @@ export interface GameOverEvent {
   forfeit?: boolean;
 }
 
+export type CzolkoCharacterPool = 'all' | 'poland';
+
+export interface CzolkoGameOptions {
+  characterPool: CzolkoCharacterPool;
+}
+
 interface GameContextValue {
   socket: Socket | null;
   connected: boolean;
@@ -50,7 +56,10 @@ interface GameContextValue {
   clearGameOver: () => void;
   createRoom: () => Promise<boolean>;
   joinRoom: (code: string) => Promise<boolean>;
-  selectGame: (game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko') => void;
+  selectGame: (
+    game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko',
+    options?: CzolkoGameOptions,
+  ) => void;
   backToLobby: () => void;
   leaveRoom: () => void;
   requestGameState: () => void;
@@ -183,8 +192,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, [socket, playerName, sessionId]);
 
-  const selectGame = useCallback((game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko') => {
-    socket?.emit('selectGame', { game, sessionId, roomCode });
+  const selectGame = useCallback((
+    game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko',
+    options?: CzolkoGameOptions,
+  ) => {
+    socket?.emit('selectGame', {
+      game,
+      sessionId,
+      roomCode,
+      gameOptions: game === 'czolko' ? options : undefined,
+    });
   }, [socket, sessionId, roomCode]);
 
   const backToLobby = useCallback(() => {

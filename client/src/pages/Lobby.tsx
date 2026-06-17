@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGame } from '../context/GameContext';
+import { useGame, type CzolkoCharacterPool } from '../context/GameContext';
 import {
   getGameLabel,
   getGameRoute,
@@ -46,6 +46,62 @@ function GameOptionButton({
       <p>{info.desc}</p>
       <span className="game-option-range">{range}</span>
     </button>
+  );
+}
+
+function CzolkoGameOption({
+  playerCount,
+  onStart,
+}: {
+  playerCount: number;
+  onStart: (characterPool: CzolkoCharacterPool) => void;
+}) {
+  const [characterPool, setCharacterPool] = useState<CzolkoCharacterPool>('all');
+  const enabled = canStartGame('czolko', playerCount);
+  const range = getGamePlayerRangeLabel('czolko');
+
+  return (
+    <div className={`game-option czolko-game-option${enabled ? '' : ' disabled'}`}>
+      <span className="emoji">🎯</span>
+      <h3>Czółko</h3>
+      <p>Każdy ma swoją postać</p>
+      <span className="game-option-range">{range}</span>
+
+      <div className="czolko-pool-settings">
+        <p className="czolko-pool-label">Postacie w grze</p>
+        <label className={`czolko-pool-choice${characterPool === 'all' ? ' active' : ''}`}>
+          <input
+            type="radio"
+            name="czolko-pool"
+            value="all"
+            checked={characterPool === 'all'}
+            disabled={!enabled}
+            onChange={() => setCharacterPool('all')}
+          />
+          <span>Wszystkie (300)</span>
+        </label>
+        <label className={`czolko-pool-choice${characterPool === 'poland' ? ' active' : ''}`}>
+          <input
+            type="radio"
+            name="czolko-pool"
+            value="poland"
+            checked={characterPool === 'poland'}
+            disabled={!enabled}
+            onChange={() => setCharacterPool('poland')}
+          />
+          <span>Tylko z Polski (64)</span>
+        </label>
+      </div>
+
+      <button
+        type="button"
+        className="btn btn-primary czolko-start-btn"
+        disabled={!enabled}
+        onClick={() => onStart(characterPool)}
+      >
+        Rozpocznij Czółko
+      </button>
+    </div>
   );
 }
 
@@ -154,7 +210,10 @@ export default function Lobby() {
             <GameOptionButton game="crossword" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="sudoku" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="unos" playerCount={playerCount} onSelect={selectGame} />
-            <GameOptionButton game="czolko" playerCount={playerCount} onSelect={selectGame} />
+            <CzolkoGameOption
+              playerCount={playerCount}
+              onStart={(characterPool) => selectGame('czolko', { characterPool })}
+            />
           </div>
         </div>
       )}

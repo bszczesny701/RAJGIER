@@ -52,6 +52,8 @@ interface CzolkoState {
   winScore: number;
   startTime: number;
   playerNames: Record<string, string>;
+  characterPool?: 'all' | 'poland';
+  characterPoolLabel?: string;
   myName: string;
   myId: string;
 }
@@ -203,7 +205,7 @@ export default function Czolko() {
       </div>
 
       <p className="czolko-subtitle">
-        Każdy ma swoją postać · teraz zgaduje {guesserName} · do {state.winScore} pkt
+        {state.characterPoolLabel || 'Wszystkie postacie'} · teraz zgaduje {guesserName} · do {state.winScore} pkt
       </p>
 
       {error && (
