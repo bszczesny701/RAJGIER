@@ -1841,66 +1841,229 @@ body {
   cursor: not-allowed;
 }
 
-.czolko-game-option {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  text-align: left;
-  cursor: default;
+/* Czółko — karta ustawień w lobby */
+.czolko-setup-card {
+  position: relative;
+  margin-top: 14px;
+  padding: 18px 16px 16px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 215, 0, 0.22);
+  background:
+    linear-gradient(145deg, rgba(255, 140, 66, 0.12) 0%, rgba(255, 107, 157, 0.06) 45%, rgba(0, 0, 0, 0.25) 100%);
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
 }
 
-.czolko-game-option .emoji,
-.czolko-game-option h3,
-.czolko-game-option > p,
-.czolko-game-option .game-option-range {
-  text-align: center;
+.czolko-setup-glow {
+  position: absolute;
+  top: -40px;
+  right: -20px;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.18) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-.czolko-pool-settings {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.czolko-setup-card.is-disabled {
+  opacity: 0.5;
+  filter: grayscale(0.15);
 }
 
-.czolko-pool-label {
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 2px;
+.czolko-setup-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.czolko-pool-choice {
+.czolko-setup-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid transparent;
-  font-size: 0.82rem;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25), rgba(255, 140, 66, 0.2));
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.czolko-setup-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.czolko-setup-titles {
+  min-width: 0;
+}
+
+.czolko-setup-titles h3 {
+  font-size: 1.15rem;
+  margin-bottom: 3px;
+  letter-spacing: 0.01em;
+}
+
+.czolko-setup-titles p {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.czolko-setup-badge {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.28);
+}
+
+.czolko-setup-body {
+  margin-bottom: 14px;
+}
+
+.czolko-setup-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.czolko-segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.czolko-segment-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-primary);
+  text-align: left;
   cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s, box-shadow 0.2s;
 }
 
-.czolko-pool-choice.active {
-  border-color: rgba(255, 215, 0, 0.45);
-  background: rgba(255, 215, 0, 0.08);
+.czolko-segment-btn:hover:not(:disabled) {
+  border-color: rgba(255, 215, 0, 0.35);
+  background: rgba(255, 215, 0, 0.06);
 }
 
-.czolko-pool-choice input {
-  accent-color: var(--accent-gold);
+.czolko-segment-btn.active {
+  border-color: rgba(255, 215, 0, 0.65);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.16), rgba(255, 140, 66, 0.1));
+  box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.15), 0 6px 18px rgba(255, 140, 66, 0.15);
 }
 
-.czolko-start-btn {
-  margin-top: 12px;
-  width: 100%;
-}
-
-.czolko-game-option.disabled .czolko-pool-choice {
+.czolko-segment-btn:disabled {
   cursor: not-allowed;
+}
+
+.czolko-segment-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.czolko-segment-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.czolko-segment-text strong {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.czolko-segment-text small {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.czolko-segment-count {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--accent-gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.czolko-setup-start {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border: none;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--bg-deep);
+  cursor: pointer;
+  background: linear-gradient(135deg, #ffe566 0%, var(--accent-orange) 100%);
+  box-shadow: 0 6px 20px rgba(255, 140, 66, 0.35);
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.15s;
+}
+
+.czolko-setup-start:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(255, 140, 66, 0.45);
+}
+
+.czolko-setup-start:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
+.czolko-setup-start:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.czolko-setup-start-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(26, 15, 46, 0.15);
+  font-size: 0.62rem;
+}
+
+@media (max-width: 380px) {
+  .czolko-setup-header {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .czolko-setup-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .czolko-segment {
+    grid-template-columns: 1fr;
+  }
 }
 
 .unos-opponents {

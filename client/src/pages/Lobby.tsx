@@ -28,7 +28,6 @@ function GameOptionButton({
     crossword: { emoji: '📝', title: 'Krzyżówka', desc: 'Kto więcej haseł odgadnie' },
     sudoku: { emoji: '🔢', title: 'Sudoku', desc: 'Kto szybciej ułoży' },
     unos: { emoji: '🃏', title: 'UNOS', desc: 'Pojedynek kart' },
-    czolko: { emoji: '🎯', title: 'Czółko', desc: 'Każdy ma swoją postać' },
   };
 
   const info = meta[game];
@@ -60,46 +59,67 @@ function CzolkoGameOption({
   const enabled = canStartGame('czolko', playerCount);
   const range = getGamePlayerRangeLabel('czolko');
 
-  return (
-    <div className={`game-option czolko-game-option${enabled ? '' : ' disabled'}`}>
-      <span className="emoji">🎯</span>
-      <h3>Czółko</h3>
-      <p>Każdy ma swoją postać</p>
-      <span className="game-option-range">{range}</span>
+  const pools: {
+    id: CzolkoCharacterPool;
+    icon: string;
+    title: string;
+    count: string;
+    hint: string;
+  }[] = [
+    { id: 'all', icon: '🌍', title: 'Wszystkie', count: '300', hint: 'Świat + fikcja' },
+    { id: 'poland', icon: '🇵🇱', title: 'Polska', count: '64', hint: 'Sport, film, historia' },
+  ];
 
-      <div className="czolko-pool-settings">
-        <p className="czolko-pool-label">Postacie w grze</p>
-        <label className={`czolko-pool-choice${characterPool === 'all' ? ' active' : ''}`}>
-          <input
-            type="radio"
-            name="czolko-pool"
-            value="all"
-            checked={characterPool === 'all'}
-            disabled={!enabled}
-            onChange={() => setCharacterPool('all')}
-          />
-          <span>Wszystkie (300)</span>
-        </label>
-        <label className={`czolko-pool-choice${characterPool === 'poland' ? ' active' : ''}`}>
-          <input
-            type="radio"
-            name="czolko-pool"
-            value="poland"
-            checked={characterPool === 'poland'}
-            disabled={!enabled}
-            onChange={() => setCharacterPool('poland')}
-          />
-          <span>Tylko z Polski (64)</span>
-        </label>
+  return (
+    <div className={`czolko-setup-card${enabled ? '' : ' is-disabled'}`}>
+      <div className="czolko-setup-glow" aria-hidden />
+
+      <div className="czolko-setup-header">
+        <div className="czolko-setup-icon-wrap">
+          <span className="czolko-setup-icon">🎯</span>
+        </div>
+        <div className="czolko-setup-titles">
+          <h3>Czółko</h3>
+          <p>Pytania TAK/NIE · każdy zgaduje swoją postać</p>
+        </div>
+        <span className="czolko-setup-badge">{range}</span>
+      </div>
+
+      <div className="czolko-setup-body">
+        <p className="czolko-setup-label">Pula postaci</p>
+        <div className="czolko-segment" role="radiogroup" aria-label="Pula postaci">
+          {pools.map((pool) => {
+            const active = characterPool === pool.id;
+            return (
+              <button
+                key={pool.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={`czolko-segment-btn${active ? ' active' : ''}`}
+                disabled={!enabled}
+                onClick={() => setCharacterPool(pool.id)}
+              >
+                <span className="czolko-segment-icon">{pool.icon}</span>
+                <span className="czolko-segment-text">
+                  <strong>{pool.title}</strong>
+                  <small>{pool.hint}</small>
+                </span>
+                <span className="czolko-segment-count">{pool.count}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <button
         type="button"
-        className="btn btn-primary czolko-start-btn"
+        className="czolko-setup-start"
         disabled={!enabled}
         onClick={() => onStart(characterPool)}
       >
-        Rozpocznij Czółko
+        <span className="czolko-setup-start-icon">▶</span>
+        <span>Rozpocznij Czółko</span>
       </button>
     </div>
   );
@@ -210,11 +230,11 @@ export default function Lobby() {
             <GameOptionButton game="crossword" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="sudoku" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="unos" playerCount={playerCount} onSelect={selectGame} />
-            <CzolkoGameOption
-              playerCount={playerCount}
-              onStart={(characterPool) => selectGame('czolko', { characterPool })}
-            />
           </div>
+          <CzolkoGameOption
+            playerCount={playerCount}
+            onStart={(characterPool) => selectGame('czolko', { characterPool })}
+          />
         </div>
       )}
 
