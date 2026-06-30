@@ -116,6 +116,8 @@ function tryFindWord(state, playerId, cells) {
     if (state.foundBy[word]) continue;
     if (cellsMatchWord(state.grid, cells, word)) {
       state.foundBy[word] = playerId;
+      if (!state.foundWordCells) state.foundWordCells = {};
+      state.foundWordCells[word] = { playerId, cells: [...cells] };
       state.scores[playerId] = (state.scores[playerId] || 0) + 1;
 
       const allFound = state.words.every((w) => state.foundBy[w]);
@@ -137,6 +139,13 @@ function tryFindWord(state, playerId, cells) {
 }
 
 function getPublicWordSearchState(state, playerId) {
+  const foundCellMarks = [];
+  for (const { playerId: finderId, cells } of Object.values(state.foundWordCells || {})) {
+    for (const cell of cells) {
+      foundCellMarks.push({ row: cell.row, col: cell.col, playerId: finderId });
+    }
+  }
+
   return {
     grid: state.grid,
     words: state.words.map((word) => ({
@@ -145,6 +154,7 @@ function getPublicWordSearchState(state, playerId) {
       foundByMe: state.foundBy[word] === playerId,
       foundByOpponent: state.foundBy[word] && state.foundBy[word] !== playerId,
     })),
+    foundCellMarks,
     scores: state.scores,
     startTime: state.startTime,
     winner: state.winner,

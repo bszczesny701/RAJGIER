@@ -876,6 +876,13 @@ body {
   font-weight: 600;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: opacity 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.word-chip.is-found {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  opacity: 0.75;
 }
 
 .word-chip.found-me {
@@ -883,6 +890,8 @@ body {
   border-color: var(--success);
   color: var(--success);
   text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  opacity: 0.85;
 }
 
 .word-chip.found-opponent {
@@ -890,6 +899,43 @@ body {
   border-color: var(--danger);
   color: var(--danger);
   text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  opacity: 0.85;
+}
+
+.wordsearch-page {
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+}
+
+.wordsearch-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.wordsearch-board-wrap {
+  touch-action: none;
+  margin-bottom: 8px;
+}
+
+.wordsearch-board {
+  --wordsearch-size: min(calc(100vw - 32px), 360px);
+  width: var(--wordsearch-size);
+  max-width: 100%;
+  touch-action: none;
+  overscroll-behavior: contain;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+
+.wordsearch-board.is-selecting {
+  touch-action: none;
+}
+
+.wordsearch-board .grid-cell {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .score-bar {

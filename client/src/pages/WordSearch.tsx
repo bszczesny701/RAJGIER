@@ -12,6 +12,7 @@ interface WordInfo {
 interface WordSearchState {
   grid: string[][];
   words: WordInfo[];
+  foundCellMarks?: { row: number; col: number; playerId: string }[];
   scores: Record<string, number>;
   startTime: number;
   winner: string | null;
@@ -86,23 +87,31 @@ export default function WordSearch() {
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (state?.winner) return;
+    e.preventDefault();
     const cell = getCellFromPoint(e.clientX, e.clientY);
     if (!cell) return;
+    gridRef.current?.setPointerCapture(e.pointerId);
     setSelecting(true);
     setSelection([cell]);
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!selecting || selection.length === 0) return;
+    e.preventDefault();
     const cell = getCellFromPoint(e.clientX, e.clientY);
     if (!cell) return;
     const newSelection = buildSelection(selection[0], cell);
     setSelection(newSelection);
   };
 
-  const handlePointerUp = () => {
-    if (!selecting || !socket || selection.length < 2) {
+  const finishSelection = (e: React.PointerEvent) => {
+    if (gridRef.current?.hasPointerCapture(e.pointerId)) {
+      gridRef.current.releasePointerCapture(e.pointerId);
+    }
+
+    if (!selecting) return;
+
+    if (!socket || selection.length < 2) {
       setSelecting(false);
       setSelection([]);
       return;
@@ -115,6 +124,9 @@ export default function WordSearch() {
 
   const isSelected = (row: number, col: number) =>
     selection.some((c) => c.row === row && c.col === col);
+
+  const getFoundMark = (row: number, col: number) =>
+    state?.foundCellMarks?.find((mark) => mark.row === row && mark.col === col);
 
   const opponentId = state && playerId
     ? Object.keys(state.scores).find((id) => id !== playerId)
@@ -135,7 +147,7 @@ export default function WordSearch() {
   const seconds = elapsed % 60;
 
   return (
-    <div className="page">
+    <div className="page wordsearch-page">
       <div className="game-header">
         <h2>🔍 Wykreślanka</h2>
         <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
@@ -169,43 +181,49 @@ export default function WordSearch() {
         {state.words.map((w) => (
           <span
             key={w.word}
-            className={`word-chip ${w.foundByMe ? 'found-me' : w.foundByOpponent ? 'found-opponent' : ''}`}
+            className={`word-chip${w.found ? ' is-found' : ''}${w.foundByMe ? ' found-me' : w.foundByOpponent ? ' found-opponent' : ''}`}
           >
             {w.word}
           </span>
         ))}
       </div>
 
-      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', marginBottom: 8 }}>
+      <p className="wordsearch-hint">
         Przeciągnij palcem po literach, aby zaznaczyć słowo
       </p>
 
-      <div
-        ref={gridRef}
-        className="grid-board"
-        style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, maxWidth: '100%' }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-      >
-        {state.grid.flatMap((row, ri) =>
-          row.map((letter, ci) => {
-            let className = 'grid-cell water-light';
-            if (isSelected(ri, ci)) className += ' selected';
+      <div className="board-wrap wordsearch-board-wrap">
+        <div
+          ref={gridRef}
+          className={`grid-board wordsearch-board${selecting ? ' is-selecting' : ''}`}
+          style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)` }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishSelection}
+          onPointerCancel={finishSelection}
+        >
+          {state.grid.flatMap((row, ri) =>
+            row.map((letter, ci) => {
+              const foundMark = getFoundMark(ri, ci);
+              let className = 'grid-cell water-light';
+              if (foundMark) {
+                className += foundMark.playerId === playerId ? ' found-me' : ' found-opponent';
+              }
+              if (isSelected(ri, ci)) className += ' selected';
 
-            return (
-              <div
-                key={`${ri}-${ci}`}
-                className={className}
-                data-row={ri}
-                data-col={ci}
-              >
-                {letter}
-              </div>
-            );
-          })
-        )}
+              return (
+                <div
+                  key={`${ri}-${ci}`}
+                  className={className}
+                  data-row={ri}
+                  data-col={ci}
+                >
+                  {letter}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
       {gameOver && (
