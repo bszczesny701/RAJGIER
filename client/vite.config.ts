@@ -11,7 +11,7 @@ export default defineConfig({
       manifest: {
         name: 'RAJ GIER',
         short_name: 'RAJ GIER',
-        description: 'Gry dla dwojga — statki, wykreślanka i krzyżówka',
+        description: 'Gry online dla 2–4 graczy — na telefonie i komputerze',
         theme_color: '#1a0f2e',
         background_color: '#1a0f2e',
         display: 'standalone',

@@ -69,6 +69,8 @@ export default function Home() {
             value={playerName}
             onChange={(e) => setPlayerName(e.target.value)}
             maxLength={20}
+            autoComplete="nickname"
+            enterKeyHint="next"
           />
         </div>
 
@@ -101,6 +103,11 @@ export default function Home() {
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={6}
+                autoComplete="off"
+                autoCapitalize="characters"
+                spellCheck={false}
+                inputMode="text"
+                enterKeyHint="go"
                 style={{ textTransform: 'uppercase', letterSpacing: '4px', textAlign: 'center', fontFamily: 'monospace' }}
               />
             </div>

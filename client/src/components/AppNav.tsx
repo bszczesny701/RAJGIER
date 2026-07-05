@@ -71,13 +71,14 @@ export default function AppNav() {
 
       <div className="app-nav-right">
         {isGame && (
-          <button type="button" className="app-nav-btn app-nav-btn-ghost" onClick={() => navigate('/lobby')}>
+          <button type="button" className="app-nav-btn app-nav-btn-ghost app-nav-duplicate" onClick={() => navigate('/lobby')}>
             Lobby
           </button>
         )}
         {!isHome && (
           <button type="button" className="app-nav-btn app-nav-btn-ghost" onClick={handleLeaveRoom} title="Opuść pokój">
-            Wyjdź
+            <span className="nav-label-full">Wyjdź</span>
+            <span className="nav-label-short" aria-hidden>✕</span>
           </button>
         )}
       </div>

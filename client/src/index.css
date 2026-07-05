@@ -18,6 +18,10 @@
   --radius: 16px;
   --radius-sm: 10px;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --touch-min: 44px;
+  --page-gutter: 16px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
 }
 
 * {
@@ -28,7 +32,13 @@
 
 html, body, #root {
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -38,6 +48,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 .app {
@@ -64,6 +76,7 @@ body {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+  padding-bottom: var(--safe-bottom);
 }
 
 .app-nav {
@@ -137,13 +150,16 @@ body {
   border: none;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
-  padding: 8px 12px;
+  padding: 10px 14px;
+  min-height: var(--touch-min);
   border-radius: 999px;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-nav-btn:hover {
@@ -159,6 +175,22 @@ body {
 .app-nav-btn-ghost:hover {
   background: rgba(248, 113, 113, 0.12);
   color: var(--danger);
+}
+
+.nav-label-short {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .nav-label-full {
+    display: none;
+  }
+
+  .nav-label-short {
+    display: inline;
+    font-size: 1rem;
+    line-height: 1;
+  }
 }
 
 .active-game-banner {
@@ -186,10 +218,11 @@ body {
 .page {
   max-width: 480px;
   margin: 0 auto;
-  padding: 16px 16px calc(32px + env(safe-area-inset-bottom, 0px));
+  padding: var(--page-gutter) var(--page-gutter) calc(24px + var(--safe-bottom));
   min-height: min-content;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .logo {
@@ -246,13 +279,15 @@ body {
 .input {
   width: 100%;
   padding: 14px 16px;
+  min-height: var(--touch-min);
   border: 2px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-sm);
   background: rgba(0, 0, 0, 0.2);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 16px;
   outline: none;
   transition: border-color 0.2s;
+  touch-action: manipulation;
 }
 
 .input:focus {
@@ -269,6 +304,7 @@ body {
   justify-content: center;
   gap: 8px;
   width: 100%;
+  min-height: var(--touch-min);
   padding: 14px 24px;
   border: none;
   border-radius: var(--radius-sm);
@@ -277,6 +313,8 @@ body {
   cursor: pointer;
   transition: transform 0.15s, opacity 0.15s, box-shadow 0.15s;
   text-decoration: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn:active:not(:disabled) {
@@ -359,7 +397,14 @@ body {
   color: var(--danger);
   cursor: pointer;
   font-size: 1.2rem;
-  padding: 0 4px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  touch-action: manipulation;
 }
 
 .room-code {
@@ -425,9 +470,12 @@ body {
   border: 2px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius);
   padding: 20px 16px;
+  min-height: 120px;
   text-align: center;
   cursor: pointer;
   transition: border-color 0.2s, transform 0.15s, background 0.2s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .game-option:hover:not(:disabled) {
@@ -504,7 +552,14 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 8px 0;
+  margin-top: -8px;
+  background: linear-gradient(180deg, var(--bg-deep) 70%, transparent);
 }
 
 .game-header h2 {
@@ -1045,17 +1100,69 @@ body {
 }
 
 @media (max-width: 480px) {
+  :root {
+    --page-gutter: 12px;
+  }
+
   .page {
-    padding: 12px 12px calc(28px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(20px + var(--safe-bottom));
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .logo {
+    margin-bottom: 24px;
+  }
+
+  .logo h1 {
+    font-size: 2.1rem;
+  }
+
+  .app-nav {
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
   }
 
   .app-nav-btn {
-    padding: 8px 10px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+
+  .app-nav-context {
     font-size: 0.72rem;
+    max-width: 110px;
+  }
+
+  .app-nav-duplicate {
+    display: none;
+  }
+
+  .game-grid {
+    gap: 10px;
+  }
+
+  .game-option {
+    padding: 16px 12px;
+    min-height: 108px;
+  }
+
+  .game-option .emoji {
+    font-size: 2rem;
   }
 
   .battleship-board {
-    --board-size: min(calc(100vw - 24px), 340px);
+    --board-size: min(calc(100dvw - 24px), 340px);
+  }
+
+  .wordsearch-board {
+    --wordsearch-size: min(calc(100dvw - 24px), 360px);
+  }
+
+  .crossword-grid {
+    --crossword-size: min(calc(100dvw - 24px), 340px);
   }
 
   .ship-picker {
@@ -1064,6 +1171,38 @@ body {
 
   .placement-controls .btn {
     min-width: 0;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal {
+    max-width: none;
+    width: 100%;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding: 28px 20px calc(24px + var(--safe-bottom));
+    animation: slideUp 0.28s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0.5; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .czolko-answer-btn {
+    min-height: 52px;
+    font-size: 1.05rem;
+  }
+
+  .czolko-segment {
+    grid-template-columns: 1fr;
+  }
+
+  .error-banner button {
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
   }
 }
 
@@ -1990,6 +2129,8 @@ body {
 }
 
 .czolko-segment-btn {
+  min-height: var(--touch-min);
+  touch-action: manipulation;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -2173,6 +2314,7 @@ body {
 
 .czolko-answer-btn {
   padding: 18px 12px;
+  min-height: var(--touch-min);
   border-radius: 12px;
   border: 2px solid transparent;
   font-size: 1rem;
