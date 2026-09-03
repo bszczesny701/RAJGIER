@@ -33,7 +33,7 @@ export default function AppNav() {
 
   if (isHome) {
     return (
-      <header className="app-nav app-nav-home">
+      <header className="app-nav app-nav-home app-nav-home-slim">
         <div className="app-nav-brand">
           <span className="app-nav-logo">🎮</span>
           <span className="app-nav-title">RAJ GIER</span>

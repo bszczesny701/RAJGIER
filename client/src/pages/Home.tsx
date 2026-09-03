@@ -2,6 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 
+const GAMES = [
+  { emoji: '🚢', name: 'Statki', players: '2' },
+  { emoji: '🔍', name: 'Wykreślanka', players: '2' },
+  { emoji: '📝', name: 'Krzyżówka', players: '2' },
+  { emoji: '🔢', name: 'Sudoku', players: '2' },
+  { emoji: '🃏', name: 'UNOS', players: '2–4' },
+  { emoji: '🎯', name: 'Czółko', players: '2–4' },
+  { emoji: '🏠', name: 'Monopoly', players: '2–6' },
+] as const;
+
 export default function Home() {
   const navigate = useNavigate();
   const { playerName, setPlayerName, createRoom, joinRoom, connected, error, clearError, room, roomCode } = useGame();
@@ -28,17 +38,15 @@ export default function Home() {
   };
 
   return (
-    <div className="page">
-      <div className="logo">
-        <span className="logo-icon">🎮</span>
-        <h1>RAJ GIER</h1>
-        <p>Gry online — od 2 do 6 graczy w pokoju</p>
-      </div>
-
-      <div style={{ textAlign: 'center', marginBottom: 16, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-        <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
-        {connected ? 'Połączono' : 'Łączenie...'}
-      </div>
+    <div className="page home-page">
+      <header className="home-hero">
+        <div className={`home-status${connected ? ' is-online' : ''}`}>
+          <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
+          {connected ? 'Online' : 'Łączenie…'}
+        </div>
+        <h1 className="home-title">RAJ GIER</h1>
+        <p className="home-sub">Pokój 2–6 osób · grajcie z telefonu</p>
+      </header>
 
       {error && (
         <div className="error-banner">
@@ -48,17 +56,16 @@ export default function Home() {
       )}
 
       {room && roomCode && (
-        <div className="card home-room-banner" style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 8 }}>
-            Jesteś w pokoju <strong style={{ color: 'var(--accent-gold)' }}>{roomCode}</strong>
-          </p>
-          <button type="button" className="btn btn-primary" onClick={() => navigate('/lobby')}>
-            → Wróć do pokoju
-          </button>
-        </div>
+        <button type="button" className="home-resume" onClick={() => navigate('/lobby')}>
+          <div className="home-resume-text">
+            <span className="home-resume-label">Aktywny pokój</span>
+            <strong>{roomCode}</strong>
+          </div>
+          <span className="home-resume-cta">Wejdź</span>
+        </button>
       )}
 
-      <div className="card">
+      <section className="home-sheet">
         <div className="input-group">
           <label htmlFor="name">Twoje imię</label>
           <input
@@ -75,31 +82,31 @@ export default function Home() {
         </div>
 
         {mode === 'menu' ? (
-          <>
+          <div className="home-actions">
             <button
               className="btn btn-primary"
               onClick={handleCreate}
               disabled={!connected || !playerName.trim() || loading}
             >
-              {loading ? 'Tworzenie...' : '✨ Utwórz pokój'}
+              {loading ? 'Tworzenie…' : 'Utwórz pokój'}
             </button>
             <button
               className="btn btn-secondary"
               onClick={() => setMode('join')}
               disabled={!connected || !playerName.trim()}
             >
-              🔗 Dołącz do pokoju
+              Dołącz kodem
             </button>
-          </>
+          </div>
         ) : (
-          <>
-            <div className="input-group">
+          <div className="home-actions">
+            <div className="input-group" style={{ marginBottom: 0 }}>
               <label htmlFor="code">Kod pokoju</label>
               <input
                 id="code"
-                className="input"
+                className="input home-code-input"
                 type="text"
-                placeholder="np. ABC123"
+                placeholder="ABC123"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 maxLength={6}
@@ -108,7 +115,6 @@ export default function Home() {
                 spellCheck={false}
                 inputMode="text"
                 enterKeyHint="go"
-                style={{ textTransform: 'uppercase', letterSpacing: '4px', textAlign: 'center', fontFamily: 'monospace' }}
               />
             </div>
             <button
@@ -116,48 +122,30 @@ export default function Home() {
               onClick={handleJoin}
               disabled={!connected || !playerName.trim() || joinCode.length < 4 || loading}
             >
-              {loading ? 'Dołączanie...' : 'Dołącz'}
+              {loading ? 'Dołączanie…' : 'Dołącz'}
             </button>
             <button className="btn btn-secondary" onClick={() => setMode('menu')}>
-              ← Wróć
+              Wróć
             </button>
-          </>
+          </div>
         )}
-      </div>
+      </section>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ fontSize: '0.95rem', marginBottom: 12, color: 'var(--text-secondary)' }}>Dostępne gry</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>🚢</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Statki</p>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>🔍</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Wykreślanka</p>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>📝</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Krzyżówka</p>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>🔢</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Sudoku</p>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>🃏</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>UNOS</p>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>🎯</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Czółko</p>
-          </div>
-          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
-            <span style={{ fontSize: '1.5rem' }}>🏠</span>
-            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Monopoly</p>
-          </div>
+      <section className="home-catalog">
+        <div className="home-catalog-head">
+          <h2>Gry</h2>
+          <span>{GAMES.length}</span>
         </div>
-      </div>
+        <div className="home-game-grid">
+          {GAMES.map((g) => (
+            <div key={g.name} className="home-game-tile">
+              <span className="home-game-emoji" aria-hidden>{g.emoji}</span>
+              <span className="home-game-name">{g.name}</span>
+              <span className="home-game-meta">{g.players}</span>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

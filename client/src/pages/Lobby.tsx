@@ -153,10 +153,15 @@ export default function Lobby() {
   if (!room) return null;
 
   return (
-    <div className="page">
-      <div className="logo" style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: '1.8rem' }}>Pokój gry</h1>
-      </div>
+    <div className="page lobby-page">
+      <header className="lobby-hero">
+        <p className="lobby-hero-label">Pokój</p>
+        <h1 className="lobby-hero-code">{room.code}</h1>
+        <p className="lobby-hero-meta">
+          {playerCount}/{MAX_ROOM_PLAYERS} graczy
+          {isHost ? ' · jesteś gospodarzem' : ''}
+        </p>
+      </header>
 
       {error && (
         <div className="error-banner">
@@ -172,58 +177,46 @@ export default function Lobby() {
             <h3 className="active-game-title">{getGameLabel(room.game)}</h3>
           </div>
           <button type="button" className="btn btn-primary" onClick={() => navigate(gameRoute)}>
-            ▶ Kontynuuj grę
+            Kontynuuj
           </button>
           {isHost && (
             <button type="button" className="btn btn-secondary" onClick={backToLobby}>
-              Zakończ grę
+              Zakończ
             </button>
           )}
         </div>
       )}
 
-      <div className="card">
-        <div className="room-code">
-          <span>Kod pokoju — wyślij znajomym</span>
-          <strong>{room.code}</strong>
-        </div>
-
-        <p className="lobby-player-count">
-          Gracze: {playerCount}/{MAX_ROOM_PLAYERS}
-        </p>
-
-        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 8 }}>W pokoju</h3>
+      <section className="card lobby-players-card">
+        <h3 className="lobby-section-title">Gracze</h3>
         <ul className="player-list">
           {room.players.map((p) => (
             <li key={p.id}>
               <div className="player-avatar">{p.name[0]?.toUpperCase()}</div>
               <span>{p.name}</span>
               {p.id === room.hostId && (
-                <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--accent-gold)' }}>
-                  gospodarz
-                </span>
+                <span className="lobby-host-badge">host</span>
               )}
             </li>
           ))}
           {playerCount < 2 && (
-            <li style={{ color: 'var(--text-muted)', fontSize: '0.85rem', paddingTop: 12 }}>
-              <span className="spinner" style={{ animation: 'pulse 1.5s infinite' }}>⏳</span>
-              Oczekiwanie na graczy (min. 2)...
+            <li className="lobby-hint">
+              Oczekiwanie na graczy (min. 2)…
             </li>
           )}
           {playerCount >= 2 && playerCount < MAX_ROOM_PLAYERS && (
-            <li style={{ color: 'var(--text-muted)', fontSize: '0.85rem', paddingTop: 12 }}>
-              Możesz czekać na więcej graczy (Monopoly: do {MAX_ROOM_PLAYERS}, UNOS/Czółko: do 4)
+            <li className="lobby-hint">
+              Możesz czekać na więcej (Monopoly do {MAX_ROOM_PLAYERS}, UNOS/Czółko do 4)
             </li>
           )}
         </ul>
-      </div>
+      </section>
 
       {canStart && isHost && room.status === 'waiting' && (
-        <div className="card">
-          <h3 style={{ fontSize: '0.95rem', marginBottom: 4 }}>Wybierz grę</h3>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8 }}>
-            Tylko gospodarz wybiera grę · {playerCount} graczy w pokoju
+        <section className="card">
+          <h3 className="lobby-section-title">Wybierz grę</h3>
+          <p className="lobby-section-sub">
+            Tylko gospodarz · {playerCount} w pokoju
           </p>
           <div className="game-grid">
             <GameOptionButton game="battleship" playerCount={playerCount} onSelect={selectGame} />
@@ -237,19 +230,19 @@ export default function Lobby() {
             playerCount={playerCount}
             onStart={(characterPool) => selectGame('czolko', { characterPool })}
           />
-        </div>
+        </section>
       )}
 
       {canStart && !isHost && room.status === 'waiting' && (
         <div className="card waiting-text">
           <div className="spinner">🎲</div>
-          <p>Czekaj, aż gospodarz wybierze grę...</p>
+          <p>Czekaj, aż gospodarz wybierze grę…</p>
         </div>
       )}
 
       {room.status === 'finished' && isHost && (
-        <button className="btn btn-primary" onClick={backToLobby} style={{ marginTop: 16 }}>
-          🔄 Wróć do wyboru gry
+        <button className="btn btn-primary" onClick={backToLobby} style={{ marginTop: 8 }}>
+          Wróć do wyboru gry
         </button>
       )}
 
@@ -262,9 +255,7 @@ export default function Lobby() {
             <h2>
               {gameOver.draw
                 ? 'Remis!'
-                : gameOver.forfeit
-                  ? `${gameOver.winnerName} wygrywa!`
-                  : `${gameOver.winnerName} wygrywa!`}
+                : `${gameOver.winnerName} wygrywa!`}
             </h2>
             <p>
               {gameOver.forfeit
