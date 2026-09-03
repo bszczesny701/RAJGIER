@@ -10,7 +10,7 @@ import {
   shortLabel,
 } from './boardLayout';
 
-const TAP_PX = 6;
+const TAP_PX = 8;
 
 function SpaceMesh({
   space,
@@ -36,12 +36,13 @@ function SpaceMesh({
     <group
       position={[x, 0, z]}
       onPointerDown={(e) => {
+        // Nie stopPropagation — MapControls musi dostać gest pan/zoom.
         pointerDown.current = { x: e.clientX, y: e.clientY };
       }}
-      onPointerUp={(e) => {
+      onClick={(e) => {
         const start = pointerDown.current;
         pointerDown.current = null;
-        if (!start || !onSelect) return;
+        if (!onSelect || !start) return;
         const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
         if (dist > TAP_PX) return;
         e.stopPropagation();

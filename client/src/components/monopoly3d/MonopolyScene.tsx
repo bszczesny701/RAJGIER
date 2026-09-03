@@ -1,6 +1,6 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { MapControls, OrthographicCamera } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Board3D from './Board3D';
 import Token3D from './Token3D';
 import type { MonopolyState } from './types';
@@ -12,18 +12,27 @@ function SceneContent({
   myId,
   colorById,
   onSelectSpace,
+  onControlsBusy,
 }: {
   state: MonopolyState;
   focusIndex: number;
   myId: string | null;
   colorById: Record<string, string>;
   onSelectSpace?: (index: number) => void;
+  onControlsBusy: (busy: boolean) => void;
 }) {
   const { invalidate } = useThree();
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     invalidate();
   }, [state, focusIndex, invalidate]);
+
+  useEffect(() => {
+    return () => {
+      if (settleTimer.current) clearTimeout(settleTimer.current);
+    };
+  }, []);
 
   const slotsBySpace = useMemo(() => {
     const map: Record<number, string[]> = {};
@@ -56,15 +65,21 @@ function SceneContent({
 
       <OrthographicCamera makeDefault position={[10, 12, 10]} zoom={42} near={0.1} far={80} />
       <MapControls
-        enableRotate
-        enableDamping
-        dampingFactor={0.12}
-        minPolarAngle={0.35}
-        maxPolarAngle={1.15}
+        makeDefault
+        enableRotate={false}
+        enableDamping={false}
         minZoom={28}
         maxZoom={70}
         screenSpacePanning
+        onStart={() => {
+          if (settleTimer.current) clearTimeout(settleTimer.current);
+          onControlsBusy(true);
+        }}
         onChange={() => invalidate()}
+        onEnd={() => {
+          if (settleTimer.current) clearTimeout(settleTimer.current);
+          settleTimer.current = setTimeout(() => onControlsBusy(false), 50);
+        }}
       />
 
       <Board3D
@@ -122,6 +137,7 @@ export default function MonopolyScene({
   onSelectSpace?: (index: number) => void;
 }) {
   const ok = useMemo(() => supportsWebGL(), []);
+  const [controlsBusy, setControlsBusy] = useState(false);
 
   if (!ok) {
     return <>{fallback}</>;
@@ -132,7 +148,7 @@ export default function MonopolyScene({
       <Canvas
         shadows
         dpr={[1, 1.5]}
-        frameloop="demand"
+        frameloop={controlsBusy ? 'always' : 'demand'}
         gl={{
           antialias: true,
           powerPreference: 'high-performance',
@@ -149,6 +165,7 @@ export default function MonopolyScene({
             myId={myId}
             colorById={colorById}
             onSelectSpace={onSelectSpace}
+            onControlsBusy={setControlsBusy}
           />
         </Suspense>
       </Canvas>
