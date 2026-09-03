@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import Board2DFallback from '../components/monopoly3d/Board2DFallback';
@@ -7,6 +7,65 @@ import { TOKEN_COLORS } from '../components/monopoly3d/boardLayout';
 import './Monopoly.css';
 
 const MonopolyScene = lazy(() => import('../components/monopoly3d/MonopolyScene'));
+
+function TurnActions({
+  state,
+  emit,
+  compact,
+}: {
+  state: MonopolyState;
+  emit: (event: string) => void;
+  compact?: boolean;
+}) {
+  if (state.myBankrupt) {
+    return <p className="monopoly-focus-meta">Jesteś bankrutem — czekasz na koniec.</p>;
+  }
+
+  if (!state.isMyTurn) {
+    return (
+      <p className="monopoly-focus-meta">
+        Czekaj na {state.currentTurnName}…
+      </p>
+    );
+  }
+
+  return (
+    <div className={`monopoly-action-btns${compact ? ' is-compact' : ''}`}>
+      {state.canPayJail && (
+        <button type="button" className="btn btn-secondary" onClick={() => emit('monopolyPayJail')}>
+          {compact ? `Kaucja ${state.jailFee}` : `Zapłać kaucję (${state.jailFee})`}
+        </button>
+      )}
+      {state.canRoll && (
+        <button type="button" className="btn btn-primary" onClick={() => emit('monopolyRoll')}>
+          {compact ? 'Rzuć' : 'Rzuć kostkami'}
+        </button>
+      )}
+      {state.canBuy && state.buyOffer && (
+        <button type="button" className="btn btn-primary" onClick={() => emit('monopolyBuy')}>
+          {compact
+            ? `Kup ${state.buyOffer.price}`
+            : `Kup ${state.buyOffer.name} (${state.buyOffer.price})`}
+        </button>
+      )}
+      {state.canSkipBuy && (
+        <button type="button" className="btn btn-secondary" onClick={() => emit('monopolySkipBuy')}>
+          {compact ? 'Odpuść' : 'Odpuść zakup'}
+        </button>
+      )}
+      {state.phase === 'awaitBuy' && state.buyOffer && !state.canBuy && (
+        <p className="monopoly-focus-meta">
+          Za mało gotówki na {state.buyOffer.name} ({state.buyOffer.price})
+        </p>
+      )}
+      {state.canEndTurn && (
+        <button type="button" className="btn btn-primary" onClick={() => emit('monopolyEndTurn')}>
+          {compact ? 'Koniec' : 'Zakończ turę'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function Monopoly() {
   const navigate = useNavigate();
@@ -26,6 +85,7 @@ export default function Monopoly() {
 
   const [state, setState] = useState<MonopolyState | null>(null);
   const [cardDismissed, setCardDismissed] = useState<string | null>(null);
+  const [noticeDismissed, setNoticeDismissed] = useState<string | null>(null);
   const isHost = room?.hostId === playerId;
 
   useEffect(() => {
@@ -58,6 +118,12 @@ export default function Monopoly() {
     }
   }, [state?.pendingCard?.id, cardDismissed]);
 
+  useEffect(() => {
+    if (state?.pendingNotice?.id && state.pendingNotice.id !== noticeDismissed) {
+      setNoticeDismissed(null);
+    }
+  }, [state?.pendingNotice?.id, noticeDismissed]);
+
   const emit = (event: string) => {
     if (!socket) return;
     socket.emit(event, { sessionId, roomCode });
@@ -79,6 +145,20 @@ export default function Monopoly() {
 
   const focusSpace = state?.spaces[focusIndex] ?? null;
   const showCard = state?.pendingCard && state.pendingCard.id !== cardDismissed;
+  const showNotice = state?.pendingNotice && state.pendingNotice.id !== noticeDismissed;
+
+  let boardFallback: ReactNode = null;
+  if (state) {
+    boardFallback = (
+      <Board2DFallback
+        spaces={state.spaces}
+        tokens={state.tokens}
+        focusIndex={focusIndex}
+        colorById={colorById}
+        myId={playerId}
+      />
+    );
+  }
 
   if (!room) return null;
 
@@ -121,31 +201,13 @@ export default function Monopoly() {
 
           <div className="monopoly-layout">
             <div className="monopoly-board-wrap">
-              <Suspense
-                fallback={(
-                  <Board2DFallback
-                    spaces={state.spaces}
-                    tokens={state.tokens}
-                    focusIndex={focusIndex}
-                    colorById={colorById}
-                    myId={playerId}
-                  />
-                )}
-              >
+              <Suspense fallback={boardFallback}>
                 <MonopolyScene
                   state={state}
                   focusIndex={focusIndex}
                   myId={playerId}
                   colorById={colorById}
-                  fallback={(
-                    <Board2DFallback
-                      spaces={state.spaces}
-                      tokens={state.tokens}
-                      focusIndex={focusIndex}
-                      colorById={colorById}
-                      myId={playerId}
-                    />
-                  )}
+                  fallback={boardFallback}
                 />
               </Suspense>
             </div>
@@ -192,46 +254,9 @@ export default function Monopoly() {
                 </ul>
               </div>
 
-              <div className="card monopoly-actions">
+              <div className="card monopoly-actions monopoly-actions-desktop">
                 <h3>Akcje</h3>
-                {state.myBankrupt ? (
-                  <p className="monopoly-focus-meta">Jesteś bankrutem — czekasz na koniec.</p>
-                ) : !state.isMyTurn ? (
-                  <p className="monopoly-focus-meta">Poczekaj na swoją turę.</p>
-                ) : (
-                  <div className="monopoly-action-btns">
-                    {state.canPayJail && (
-                      <button type="button" className="btn btn-secondary" onClick={() => emit('monopolyPayJail')}>
-                        Zapłać kaucję ({state.jailFee})
-                      </button>
-                    )}
-                    {state.canRoll && (
-                      <button type="button" className="btn btn-primary" onClick={() => emit('monopolyRoll')}>
-                        Rzuć kostkami
-                      </button>
-                    )}
-                    {state.canBuy && state.buyOffer && (
-                      <button type="button" className="btn btn-primary" onClick={() => emit('monopolyBuy')}>
-                        Kup {state.buyOffer.name} ({state.buyOffer.price})
-                      </button>
-                    )}
-                    {state.canSkipBuy && (
-                      <button type="button" className="btn btn-secondary" onClick={() => emit('monopolySkipBuy')}>
-                        Odpuść zakup
-                      </button>
-                    )}
-                    {state.phase === 'awaitBuy' && state.buyOffer && !state.canBuy && (
-                      <p className="monopoly-focus-meta">
-                        Za mało gotówki na {state.buyOffer.name} ({state.buyOffer.price})
-                      </p>
-                    )}
-                    {state.canEndTurn && (
-                      <button type="button" className="btn btn-primary" onClick={() => emit('monopolyEndTurn')}>
-                        Zakończ turę
-                      </button>
-                    )}
-                  </div>
-                )}
+                <TurnActions state={state} emit={emit} />
               </div>
 
               <div className="card monopoly-log">
@@ -243,6 +268,10 @@ export default function Monopoly() {
                 </ul>
               </div>
             </div>
+          </div>
+
+          <div className="monopoly-action-bar" aria-label="Akcje tury">
+            <TurnActions state={state} emit={emit} compact />
           </div>
         </>
       )}
@@ -257,6 +286,23 @@ export default function Monopoly() {
               type="button"
               className="btn btn-primary"
               onClick={() => setCardDismissed(state.pendingCard!.id)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showNotice && state?.pendingNotice && !showCard && (
+        <div className="modal-overlay" onClick={() => setNoticeDismissed(state.pendingNotice!.id)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="emoji-big">💰</div>
+            <h2>{state.pendingNotice.title}</h2>
+            <p>{state.pendingNotice.text}</p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setNoticeDismissed(state.pendingNotice!.id)}
             >
               OK
             </button>

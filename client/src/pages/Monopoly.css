@@ -280,6 +280,32 @@
   width: 100%;
 }
 
+.monopoly-action-btns.is-compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: stretch;
+  gap: 8px;
+}
+
+.monopoly-action-btns.is-compact .btn {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+  width: auto;
+  padding: 12px 10px;
+  font-size: 0.95rem;
+}
+
+.monopoly-action-btns.is-compact .monopoly-focus-meta {
+  flex: 1 1 100%;
+  margin: 0;
+  text-align: center;
+}
+
+/* Sticky bar — only mobile */
+.monopoly-action-bar {
+  display: none;
+}
+
 .monopoly-log ul {
   max-height: 180px;
   overflow-y: auto;
@@ -314,7 +340,8 @@
 @media (max-width: 820px) {
   .page.monopoly-page {
     max-width: 480px;
-    padding: var(--page-gutter) var(--page-gutter) calc(24px + var(--safe-bottom));
+    padding: 10px 12px;
+    padding-bottom: calc(88px + var(--safe-bottom));
   }
 
   .monopoly-layout {
@@ -328,20 +355,55 @@
     overflow: visible;
   }
 
+  .monopoly-actions-desktop {
+    display: none;
+  }
+
   .monopoly-board-wrap,
   .monopoly-canvas {
-    min-height: min(52vh, 100vw);
-    height: min(52vh, 100vw);
+    min-height: min(46vh, 100vw);
+    height: min(46vh, 100vw);
+  }
+
+  .monopoly-hud {
+    padding: 10px 12px;
+    margin-bottom: 0;
   }
 
   .monopoly-hud-main {
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
   }
 
   .monopoly-turn,
   .monopoly-cash {
+    font-size: 0.85rem;
+  }
+
+  .monopoly-turn strong,
+  .monopoly-cash strong {
+    font-size: 0.95rem;
+  }
+
+  .monopoly-action-bar {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 10px 12px calc(10px + var(--safe-bottom));
+    background: rgba(26, 15, 46, 0.96);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .monopoly-action-bar .monopoly-focus-meta {
+    color: var(--text-secondary);
     font-size: 0.9rem;
+    text-align: center;
+    padding: 6px 0;
   }
 }
 

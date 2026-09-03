@@ -241,7 +241,19 @@ function resolveLanding(state, playerId, opts = {}) {
     }
     if (ownerId !== playerId && !state.players[ownerId].bankrupt) {
       const rent = rentDue(state, p.position, state.lastDice?.total || 0);
-      debit(state, playerId, rent, ownerId, `Czynsz ${rent} za ${space.name}`);
+      const paid = debit(state, playerId, rent, ownerId, `Czynsz ${rent} za ${space.name}`);
+      if (rent > 0) {
+        state.pendingNotice = {
+          id: `rent-${playerId}-${p.position}-${Date.now()}`,
+          kind: 'rent',
+          title: 'Czynsz',
+          payerId: playerId,
+          ownerId,
+          amount: rent,
+          spaceName: space.name,
+          bankrupt: !paid,
+        };
+      }
     }
   }
 }
@@ -292,6 +304,7 @@ function advanceTurn(state) {
   state.doublesCount = 0;
   state.awaitingBuy = null;
   state.pendingCard = null;
+  state.pendingNotice = null;
 }
 
 function createMonopolyState(playerIds) {
@@ -316,6 +329,7 @@ function createMonopolyState(playerIds) {
     owners: {},
     lastDice: null,
     pendingCard: null,
+    pendingNotice: null,
     awaitingBuy: null,
     log: ['Zaczynamy partię Monopoly.'],
     winner: null,
@@ -346,6 +360,7 @@ function monopolyRoll(state, playerId) {
   const total = d1 + d2;
   state.lastDice = { d1, d2, total, doubles };
   state.pendingCard = null;
+  state.pendingNotice = null;
   pushLog(state, `Kostka: ${d1} + ${d2} = ${total}${doubles ? ' (dublet)' : ''}`);
 
   if (p.inJail) {
@@ -483,6 +498,22 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     bankrupt: state.players[id].bankrupt,
   }));
 
+  let pendingNotice = null;
+  if (state.pendingNotice) {
+    const n = state.pendingNotice;
+    const payerName = playerNames[n.payerId] || 'Gracz';
+    const ownerName = playerNames[n.ownerId] || 'Gracz';
+    const text = n.bankrupt
+      ? `${payerName} nie stać na czynsz ${n.amount} za ${n.spaceName} (właściciel: ${ownerName}) — bankructwo!`
+      : `${payerName} płaci ${n.amount} za ${n.spaceName} (właściciel: ${ownerName}).`;
+    pendingNotice = {
+      id: n.id,
+      kind: n.kind,
+      title: n.title || 'Czynsz',
+      text,
+    };
+  }
+
   return {
     phase: state.phase,
     currentPlayerId: state.currentPlayerId,
@@ -490,6 +521,7 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     winner: state.winner,
     lastDice: state.lastDice,
     pendingCard: state.pendingCard,
+    pendingNotice,
     log: state.log,
     spaces,
     tokens,

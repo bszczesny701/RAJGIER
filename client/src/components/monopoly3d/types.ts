@@ -25,6 +25,7 @@ export interface MonopolyState {
   winner: string | null;
   lastDice: { d1: number; d2: number; total: number; doubles: boolean } | null;
   pendingCard: { id: string; text: string } | null;
+  pendingNotice: { id: string; kind: string; title: string; text: string } | null;
   log: string[];
   spaces: MonopolySpace[];
   tokens: MonopolyToken[];
