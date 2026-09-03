@@ -26,6 +26,8 @@ export default function Token3D({
 }) {
   const group = useRef<THREE.Group>(null);
   const bounce = useRef(0);
+  const shake = useRef(0);
+  const wasJail = useRef(token.inJail);
   const prevPos = useRef(token.position);
   const { invalidate } = useThree();
 
@@ -42,6 +44,14 @@ export default function Token3D({
       invalidate();
     }
   }, [token.position, invalidate]);
+
+  useEffect(() => {
+    if (token.inJail && !wasJail.current) {
+      shake.current = 1;
+      invalidate();
+    }
+    wasJail.current = token.inJail;
+  }, [token.inJail, invalidate]);
 
   useFrame((_, dt) => {
     const g = group.current;
@@ -62,13 +72,23 @@ export default function Token3D({
       cur.z = target.z;
     }
 
+    let y = 0;
     if (bounce.current > 0) {
       bounce.current = Math.max(0, bounce.current - dt * 2.2);
-      cur.y = Math.sin((1 - bounce.current) * Math.PI) * 0.35 * bounce.current;
+      y = Math.sin((1 - bounce.current) * Math.PI) * 0.35 * bounce.current;
       invalidate();
-    } else {
-      cur.y = 0;
     }
+
+    let sx = 0;
+    if (shake.current > 0) {
+      shake.current = Math.max(0, shake.current - dt * 1.8);
+      sx = Math.sin(shake.current * 40) * 0.08 * shake.current;
+      invalidate();
+    }
+
+    cur.y = y;
+    g.rotation.z = sx * 2;
+    g.position.x = target.x + (dist > 0.002 ? cur.x - target.x : 0) + sx;
   });
 
   const scale = isMe ? 1.15 : 1;
@@ -83,6 +103,12 @@ export default function Token3D({
         <sphereGeometry args={[0.15, 16, 16]} />
         <meshStandardMaterial color={color} roughness={0.3} metalness={0.25} />
       </mesh>
+      {token.inJail && (
+        <mesh position={[0, 0.42, 0]}>
+          <torusGeometry args={[0.2, 0.025, 8, 16]} />
+          <meshStandardMaterial color="#94a3b8" metalness={0.5} roughness={0.3} />
+        </mesh>
+      )}
       {isMe && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
           <ringGeometry args={[0.22, 0.28, 24]} />

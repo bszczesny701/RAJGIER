@@ -43,11 +43,15 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   if (space.type === 'go') return 'START';
   if (space.type === 'jail') return 'Więz.';
   if (space.type === 'parking') return 'Park';
-  if (space.type === 'gotojail') return '→Więz';
+  if (space.type === 'gotojail') return 'Więz!';
   if (space.type === 'chance') return '?';
-  if (space.type === 'chest') return 'K$';
-  if (space.type === 'tax') return `−${space.tax}`;
-  if (space.type === 'rail') return 'St.';
-  if (space.type === 'utility') return 'Med.';
-  return space.name.replace(/^Inwestycja\s+/i, '');
+  if (space.type === 'chest') return 'Kasa';
+  if (space.type === 'tax') return 'Pod.';
+  if (space.type === 'rail') return space.name.replace('Stacja ', 'S');
+  if (space.type === 'utility') return space.name.replace('Media ', 'M');
+  const m = space.name.match(/([A-H]\d)/i);
+  return m ? m[1].toUpperCase() : space.name.slice(0, 3);
 }
+
+export const RENT_LABELS = ['Bez ulepszeń', '1 dom', '2 domy', '3 domy', '4 domy', 'Hotel'];
+

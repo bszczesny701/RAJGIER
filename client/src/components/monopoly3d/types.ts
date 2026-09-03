@@ -5,6 +5,8 @@ export interface MonopolySpace {
   group: string;
   price: number | null;
   tax: number | null;
+  rent: number[] | null;
+  houseCost: number | null;
   ownerId: string | null;
 }
 
@@ -23,12 +25,13 @@ export interface MonopolyState {
   currentPlayerId: string | null;
   currentTurnName: string;
   winner: string | null;
-  lastDice: { d1: number; d2: number; total: number; doubles: boolean } | null;
+  lastDice: { d1: number; total: number; bonus: boolean } | null;
   pendingCard: { id: string; text: string } | null;
   pendingNotice: { id: string; kind: string; title: string; text: string } | null;
   log: string[];
   spaces: MonopolySpace[];
   tokens: MonopolyToken[];
+  myPropertyIndexes: number[];
   myId: string;
   myCash: number;
   myPosition: number;

@@ -1,21 +1,26 @@
-import { Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import Board2DFallback from '../components/monopoly3d/Board2DFallback';
-import type { MonopolyState } from '../components/monopoly3d/types';
-import { TOKEN_COLORS } from '../components/monopoly3d/boardLayout';
+import PropertyDeed from '../components/monopoly3d/PropertyDeed';
+import type { MonopolySpace, MonopolyState } from '../components/monopoly3d/types';
+import { GROUP_COLORS, TOKEN_COLORS } from '../components/monopoly3d/boardLayout';
 import './Monopoly.css';
 
 const MonopolyScene = lazy(() => import('../components/monopoly3d/MonopolyScene'));
 
 function TurnActions({
   state,
+  onRoll,
   emit,
   compact,
+  rolling,
 }: {
   state: MonopolyState;
+  onRoll: () => void;
   emit: (event: string) => void;
   compact?: boolean;
+  rolling?: boolean;
 }) {
   if (state.myBankrupt) {
     return <p className="monopoly-focus-meta">Jesteś bankrutem — czekasz na koniec.</p>;
@@ -37,8 +42,13 @@ function TurnActions({
         </button>
       )}
       {state.canRoll && (
-        <button type="button" className="btn btn-primary" onClick={() => emit('monopolyRoll')}>
-          {compact ? 'Rzuć' : 'Rzuć kostkami'}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={onRoll}
+          disabled={rolling}
+        >
+          {rolling ? '…' : compact ? 'Rzuć' : 'Rzuć kostką'}
         </button>
       )}
       {state.canBuy && state.buyOffer && (
@@ -86,6 +96,13 @@ export default function Monopoly() {
   const [state, setState] = useState<MonopolyState | null>(null);
   const [cardDismissed, setCardDismissed] = useState<string | null>(null);
   const [noticeDismissed, setNoticeDismissed] = useState<string | null>(null);
+  const [deedSpace, setDeedSpace] = useState<MonopolySpace | null>(null);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [diceRolling, setDiceRolling] = useState(false);
+  const [displayDie, setDisplayDie] = useState<number | null>(null);
+  const [bonusFlash, setBonusFlash] = useState(false);
+  const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHost = room?.hostId === playerId;
 
   useEffect(() => {
@@ -103,12 +120,32 @@ export default function Monopoly() {
 
     const handler = (data: MonopolyState) => {
       setState(data);
+      if (data.lastDice) {
+        if (rollTimer.current) clearInterval(rollTimer.current);
+        if (rollTimeout.current) clearTimeout(rollTimeout.current);
+        setDiceRolling(true);
+        setBonusFlash(false);
+        rollTimer.current = setInterval(() => {
+          setDisplayDie(1 + Math.floor(Math.random() * 6));
+        }, 70);
+        rollTimeout.current = setTimeout(() => {
+          if (rollTimer.current) clearInterval(rollTimer.current);
+          setDisplayDie(data.lastDice!.d1);
+          setDiceRolling(false);
+          if (data.lastDice!.bonus) {
+            setBonusFlash(true);
+            setTimeout(() => setBonusFlash(false), 1600);
+          }
+        }, 900);
+      }
     };
     socket.on('monopolyUpdate', handler);
     requestGameState();
 
     return () => {
       socket.off('monopolyUpdate', handler);
+      if (rollTimer.current) clearInterval(rollTimer.current);
+      if (rollTimeout.current) clearTimeout(rollTimeout.current);
     };
   }, [socket, room, requestGameState]);
 
@@ -129,6 +166,17 @@ export default function Monopoly() {
     socket.emit(event, { sessionId, roomCode });
   };
 
+  const handleRoll = () => {
+    if (diceRolling) return;
+    setDiceRolling(true);
+    setBonusFlash(false);
+    if (rollTimer.current) clearInterval(rollTimer.current);
+    rollTimer.current = setInterval(() => {
+      setDisplayDie(1 + Math.floor(Math.random() * 6));
+    }, 70);
+    emit('monopolyRoll');
+  };
+
   const colorById = useMemo(() => {
     const map: Record<string, string> = {};
     state?.tokens.forEach((t, i) => {
@@ -146,6 +194,16 @@ export default function Monopoly() {
   const focusSpace = state?.spaces[focusIndex] ?? null;
   const showCard = state?.pendingCard && state.pendingCard.id !== cardDismissed;
   const showNotice = state?.pendingNotice && state.pendingNotice.id !== noticeDismissed;
+
+  const myProperties = useMemo(() => {
+    if (!state) return [];
+    const idxs = state.myPropertyIndexes || state.spaces
+      .filter((s) => s.ownerId === playerId)
+      .map((s) => s.index);
+    return idxs.map((i) => state.spaces[i]).filter(Boolean);
+  }, [state, playerId]);
+
+  const dieFace = displayDie ?? state?.lastDice?.d1 ?? null;
 
   let boardFallback: ReactNode = null;
   if (state) {
@@ -195,12 +253,26 @@ export default function Monopoly() {
                 <span className="monopoly-chip-value">{state.myCash}</span>
               </div>
             </div>
-            {state.lastDice && (
-              <div className="monopoly-dice" aria-label="Ostatni rzut">
-                <span>{state.lastDice.d1}</span>
-                <span>{state.lastDice.d2}</span>
+
+            <div className="monopoly-hud-right">
+              <button
+                type="button"
+                className="monopoly-inv-btn"
+                onClick={() => setInventoryOpen(true)}
+              >
+                Karty
+                {myProperties.length > 0 && (
+                  <span className="monopoly-inv-count">{myProperties.length}</span>
+                )}
+              </button>
+
+              <div className={`monopoly-die-wrap${diceRolling ? ' is-rolling' : ''}${bonusFlash ? ' is-bonus' : ''}`}>
+                <div className="monopoly-die" aria-label="Kostka">
+                  {dieFace ?? '·'}
+                </div>
+                {bonusFlash && <span className="monopoly-die-bonus">+6!</span>}
               </div>
-            )}
+            </div>
           </div>
 
           <div className="monopoly-layout">
@@ -212,6 +284,7 @@ export default function Monopoly() {
                   myId={playerId}
                   colorById={colorById}
                   fallback={boardFallback}
+                  onSelectSpace={(idx) => setDeedSpace(state.spaces[idx] || null)}
                 />
               </Suspense>
             </div>
@@ -225,15 +298,20 @@ export default function Monopoly() {
                     {focusSpace.price != null && (
                       <p className="monopoly-focus-meta">Cena: {focusSpace.price}</p>
                     )}
-                    {focusSpace.tax != null && (
-                      <p className="monopoly-focus-meta">Podatek: {focusSpace.tax}</p>
-                    )}
                     {focusSpace.ownerId && (
                       <p className="monopoly-focus-meta">
                         Właściciel:{' '}
                         {state.tokens.find((t) => t.id === focusSpace.ownerId)?.name || '—'}
                       </p>
                     )}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ marginTop: 8 }}
+                      onClick={() => setDeedSpace(focusSpace)}
+                    >
+                      Zobacz kartę
+                    </button>
                   </>
                 ) : (
                   <p className="monopoly-focus-meta">—</p>
@@ -260,15 +338,63 @@ export default function Monopoly() {
 
               <div className="card monopoly-actions monopoly-actions-desktop">
                 <h3>Akcje</h3>
-                <TurnActions state={state} emit={emit} />
+                <TurnActions state={state} emit={emit} onRoll={handleRoll} rolling={diceRolling} />
               </div>
             </div>
           </div>
 
           <div className="monopoly-action-bar" aria-label="Akcje tury">
-            <TurnActions state={state} emit={emit} compact />
+            <TurnActions state={state} emit={emit} onRoll={handleRoll} rolling={diceRolling} compact />
           </div>
         </>
+      )}
+
+      {inventoryOpen && state && (
+        <div className="modal-overlay" onClick={() => setInventoryOpen(false)}>
+          <div className="monopoly-inventory" onClick={(e) => e.stopPropagation()}>
+            <div className="monopoly-inventory-head">
+              <h2>Twoje karty</h2>
+              <button type="button" className="monopoly-deed-close" onClick={() => setInventoryOpen(false)}>×</button>
+            </div>
+            {myProperties.length === 0 ? (
+              <p className="monopoly-focus-meta">Brak kart — kup inwestycje na planszy.</p>
+            ) : (
+              <ul className="monopoly-inventory-list">
+                {myProperties.map((s) => (
+                  <li key={s.index}>
+                    <button
+                      type="button"
+                      className="monopoly-inventory-item"
+                      onClick={() => {
+                        setInventoryOpen(false);
+                        setDeedSpace(s);
+                      }}
+                    >
+                      <span
+                        className="monopoly-inventory-swatch"
+                        style={{ background: GROUP_COLORS[s.group] || '#888' }}
+                      />
+                      <span className="monopoly-inventory-name">{s.name}</span>
+                      <span className="monopoly-inventory-price">{s.price ?? '—'}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {deedSpace && state && (
+        <PropertyDeed
+          space={deedSpace}
+          ownerName={
+            deedSpace.ownerId
+              ? state.tokens.find((t) => t.id === deedSpace.ownerId)?.name || null
+              : null
+          }
+          onClose={() => setDeedSpace(null)}
+        />
       )}
 
       {showCard && state?.pendingCard && (
@@ -288,10 +414,12 @@ export default function Monopoly() {
         </div>
       )}
 
-      {showNotice && state?.pendingNotice && !showCard && (
+      {showNotice && state?.pendingNotice && !showCard && !deedSpace && (
         <div className="modal-overlay" onClick={() => setNoticeDismissed(state.pendingNotice!.id)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="emoji-big">💰</div>
+            <div className="emoji-big">
+              {state.pendingNotice.kind === 'jail' ? '🔒' : '💰'}
+            </div>
             <h2>{state.pendingNotice.title}</h2>
             <p>{state.pendingNotice.text}</p>
             <button

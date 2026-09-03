@@ -11,11 +11,13 @@ function SceneContent({
   focusIndex,
   myId,
   colorById,
+  onSelectSpace,
 }: {
   state: MonopolyState;
   focusIndex: number;
   myId: string | null;
   colorById: Record<string, string>;
+  onSelectSpace?: (index: number) => void;
 }) {
   const { invalidate } = useThree();
 
@@ -36,10 +38,10 @@ function SceneContent({
   return (
     <>
       <color attach="background" args={['#0a0a0b']} />
-      <ambientLight intensity={0.58} />
+      <ambientLight intensity={0.65} />
       <directionalLight
         castShadow
-        intensity={1.1}
+        intensity={1.0}
         position={[8, 14, 6]}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -63,7 +65,12 @@ function SceneContent({
         onChange={() => invalidate()}
       />
 
-      <Board3D spaces={state.spaces} focusIndex={focusIndex} colorById={colorById} />
+      <Board3D
+        spaces={state.spaces}
+        focusIndex={focusIndex}
+        colorById={colorById}
+        onSelectSpace={onSelectSpace}
+      />
 
       {state.tokens
         .filter((t) => !t.bankrupt)
@@ -103,12 +110,14 @@ export default function MonopolyScene({
   myId,
   colorById,
   fallback,
+  onSelectSpace,
 }: {
   state: MonopolyState;
   focusIndex: number;
   myId: string | null;
   colorById: Record<string, string>;
   fallback: ReactNode;
+  onSelectSpace?: (index: number) => void;
 }) {
   const ok = useMemo(() => supportsWebGL(), []);
 
@@ -137,6 +146,7 @@ export default function MonopolyScene({
             focusIndex={focusIndex}
             myId={myId}
             colorById={colorById}
+            onSelectSpace={onSelectSpace}
           />
         </Suspense>
       </Canvas>

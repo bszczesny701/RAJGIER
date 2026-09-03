@@ -72,7 +72,7 @@ function bankruptPlayer(state, playerId, creditorId) {
   if (state.winner) return;
   if (state.currentPlayerId === playerId) {
     state.extraTurn = false;
-    state.doublesCount = 0;
+    state.sixCount = 0;
     advanceTurn(state);
   }
 }
@@ -110,8 +110,14 @@ function sendToJail(state, playerId) {
   p.inJail = true;
   p.jailTurns = 0;
   state.extraTurn = false;
-  state.doublesCount = 0;
+  state.sixCount = 0;
   state.awaitingBuy = null;
+  state.pendingNotice = {
+    id: `jail-${playerId}-${Date.now()}`,
+    kind: 'jail',
+    title: 'Więzienie',
+    text: 'Idziesz do więzienia!',
+  };
   pushLog(state, 'Idziesz do więzienia.');
 }
 
@@ -272,7 +278,7 @@ function afterLanding(state, playerId) {
   }
   if (state.extraTurn && !p.inJail) {
     state.phase = 'rolling';
-    pushLog(state, 'Dublet — rzucasz jeszcze raz.');
+    pushLog(state, 'Szóstka — rzucasz jeszcze raz.');
     return;
   }
   state.phase = 'awaitEnd';
@@ -301,7 +307,7 @@ function advanceTurn(state) {
 
   state.phase = 'rolling';
   state.extraTurn = false;
-  state.doublesCount = 0;
+  state.sixCount = 0;
   state.awaitingBuy = null;
   state.pendingCard = null;
   state.pendingNotice = null;
@@ -322,7 +328,7 @@ function createMonopolyState(playerIds) {
   return {
     phase: 'rolling',
     currentPlayerId: playerIds[0],
-    doublesCount: 0,
+    sixCount: 0,
     extraTurn: false,
     players,
     order: [...playerIds],
@@ -355,20 +361,19 @@ function monopolyRoll(state, playerId) {
 
   const p = state.players[playerId];
   const d1 = 1 + Math.floor(Math.random() * 6);
-  const d2 = 1 + Math.floor(Math.random() * 6);
-  const doubles = d1 === d2;
-  const total = d1 + d2;
-  state.lastDice = { d1, d2, total, doubles };
+  const bonus = d1 === 6;
+  const total = d1;
+  state.lastDice = { d1, total, bonus };
   state.pendingCard = null;
   state.pendingNotice = null;
-  pushLog(state, `Kostka: ${d1} + ${d2} = ${total}${doubles ? ' (dublet)' : ''}`);
+  pushLog(state, `Kostka: ${d1}${bonus ? ' (szóstka — dodatkowy rzut)' : ''}`);
 
   if (p.inJail) {
-    if (doubles) {
+    if (bonus) {
       p.inJail = false;
       p.jailTurns = 0;
       state.extraTurn = false;
-      state.doublesCount = 0;
+      state.sixCount = 0;
       moveBySteps(state, playerId, total);
       resolveLanding(state, playerId);
       afterLanding(state, playerId);
@@ -387,21 +392,21 @@ function monopolyRoll(state, playerId) {
       return { ok: true };
     }
 
-    pushLog(state, 'Brak dubleta — zostajesz w więzieniu.');
+    pushLog(state, 'Brak szóstki — zostajesz w więzieniu.');
     state.phase = 'awaitEnd';
     return { ok: true };
   }
 
-  if (doubles) {
-    state.doublesCount += 1;
-    if (state.doublesCount >= 3) {
+  if (bonus) {
+    state.sixCount += 1;
+    if (state.sixCount >= 3) {
       sendToJail(state, playerId);
       state.phase = 'awaitEnd';
       return { ok: true };
     }
     state.extraTurn = true;
   } else {
-    state.doublesCount = 0;
+    state.sixCount = 0;
     state.extraTurn = false;
   }
 
@@ -485,6 +490,8 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     group: space.group || 'special',
     price: space.price || null,
     tax: space.tax || null,
+    rent: space.rent ? [...space.rent] : null,
+    houseCost: space.houseCost || null,
     ownerId: state.owners[index] || null,
   }));
 
@@ -498,20 +505,34 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     bankrupt: state.players[id].bankrupt,
   }));
 
+  const myPropertyIndexes = Object.entries(state.owners)
+    .filter(([, owner]) => owner === viewerId)
+    .map(([idx]) => Number(idx))
+    .sort((a, b) => a - b);
+
   let pendingNotice = null;
   if (state.pendingNotice) {
     const n = state.pendingNotice;
-    const payerName = playerNames[n.payerId] || 'Gracz';
-    const ownerName = playerNames[n.ownerId] || 'Gracz';
-    const text = n.bankrupt
-      ? `${payerName} nie stać na czynsz ${n.amount} za ${n.spaceName} (właściciel: ${ownerName}) — bankructwo!`
-      : `${payerName} płaci ${n.amount} za ${n.spaceName} (właściciel: ${ownerName}).`;
-    pendingNotice = {
-      id: n.id,
-      kind: n.kind,
-      title: n.title || 'Czynsz',
-      text,
-    };
+    if (n.kind === 'jail') {
+      pendingNotice = {
+        id: n.id,
+        kind: 'jail',
+        title: n.title || 'Więzienie',
+        text: n.text || 'Idziesz do więzienia!',
+      };
+    } else {
+      const payerName = playerNames[n.payerId] || 'Gracz';
+      const ownerName = playerNames[n.ownerId] || 'Gracz';
+      const text = n.bankrupt
+        ? `${payerName} nie stać na czynsz ${n.amount} za ${n.spaceName} (właściciel: ${ownerName}) — bankructwo!`
+        : `${payerName} płaci ${n.amount} za ${n.spaceName} (właściciel: ${ownerName}).`;
+      pendingNotice = {
+        id: n.id,
+        kind: n.kind || 'rent',
+        title: n.title || 'Czynsz',
+        text,
+      };
+    }
   }
 
   return {
@@ -525,6 +546,7 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     log: state.log,
     spaces,
     tokens,
+    myPropertyIndexes,
     myId: viewerId,
     myCash: p?.cash ?? 0,
     myPosition: p?.position ?? 0,

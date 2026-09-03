@@ -14,73 +14,88 @@ function SpaceMesh({
   space,
   focused,
   ownerColor,
+  onSelect,
 }: {
   space: MonopolySpace;
   focused: boolean;
   ownerColor: string | null;
+  onSelect?: (index: number) => void;
 }) {
   const { x, z } = indexToWorld(space.index);
   const corner = isCorner(space.index);
-  const baseH = corner ? 0.28 : 0.18;
+  const baseH = corner ? 0.22 : 0.14;
   const strip = GROUP_COLORS[space.group] || GROUP_COLORS.special;
-  const baseColor = corner ? '#e8d9b8' : '#f4ead5';
+  const baseColor = corner ? '#fff8ea' : '#fffcf5';
   const label = shortLabel(space);
+  const isJail = space.type === 'jail' || space.type === 'gotojail';
 
   return (
-    <group position={[x, 0, z]}>
+    <group
+      position={[x, 0, z]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect?.(space.index);
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <RoundedBox
-        args={[CELL * 0.92, baseH, CELL * 0.92]}
-        radius={0.06}
+        args={[CELL * 0.94, baseH, CELL * 0.94]}
+        radius={0.04}
         smoothness={2}
         position={[0, baseH / 2, 0]}
         castShadow
         receiveShadow
       >
         <meshStandardMaterial
-          color={focused ? '#fff6e0' : baseColor}
-          roughness={0.5}
-          metalness={0.05}
-          emissive={focused ? '#c9a227' : '#000000'}
-          emissiveIntensity={focused ? 0.22 : 0}
+          color={focused ? '#fff1c2' : baseColor}
+          roughness={0.65}
+          metalness={0}
         />
       </RoundedBox>
 
-      <RoundedBox
-        args={[CELL * 0.78, 0.07, CELL * 0.22]}
-        radius={0.03}
-        smoothness={2}
-        position={[0, baseH + 0.04, -CELL * 0.28]}
-      >
-        <meshStandardMaterial color={strip} roughness={0.35} metalness={0.15} />
-      </RoundedBox>
+      <mesh position={[0, baseH + 0.02, -CELL * 0.32]}>
+        <boxGeometry args={[CELL * 0.82, 0.1, CELL * 0.18]} />
+        <meshStandardMaterial color={strip} roughness={0.4} metalness={0.05} />
+      </mesh>
 
       {ownerColor && (
-        <mesh position={[CELL * 0.28, baseH + 0.08, CELL * 0.28]}>
-          <sphereGeometry args={[0.08, 12, 12]} />
-          <meshStandardMaterial color={ownerColor} emissive={ownerColor} emissiveIntensity={0.25} />
+        <mesh position={[CELL * 0.3, baseH + 0.06, CELL * 0.3]}>
+          <sphereGeometry args={[0.09, 12, 12]} />
+          <meshStandardMaterial color={ownerColor} />
         </mesh>
       )}
 
       <Text
-        position={[0, baseH + 0.12, 0.05]}
+        position={[0, baseH + 0.08, 0.08]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={corner ? 0.18 : 0.14}
-        color="#1c1408"
+        fontSize={corner ? 0.22 : 0.2}
+        color="#111111"
         anchorX="center"
         anchorY="middle"
-        maxWidth={CELL * 0.75}
+        maxWidth={CELL * 0.8}
         textAlign="center"
-        outlineWidth={0.01}
-        outlineColor="#f4ead5"
+        outlineWidth={0.008}
+        outlineColor="#ffffff"
       >
         {label}
       </Text>
 
       {focused && (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-          <ringGeometry args={[CELL * 0.38, CELL * 0.48, 32]} />
-          <meshBasicMaterial color="#c41e3a" transparent opacity={0.85} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
+          <ringGeometry args={[CELL * 0.36, CELL * 0.46, 28]} />
+          <meshBasicMaterial color="#ef4444" transparent opacity={0.75} />
         </mesh>
+      )}
+
+      {isJail && (
+        <group position={[0, baseH + 0.12, 0]}>
+          {[-0.18, 0, 0.18].map((ox) => (
+            <mesh key={ox} position={[ox, 0.12, 0]}>
+              <boxGeometry args={[0.04, 0.28, 0.04]} />
+              <meshStandardMaterial color="#444" metalness={0.4} roughness={0.3} />
+            </mesh>
+          ))}
+        </group>
       )}
     </group>
   );
@@ -90,38 +105,40 @@ export default function Board3D({
   spaces,
   focusIndex,
   colorById,
+  onSelectSpace,
 }: {
   spaces: MonopolySpace[];
   focusIndex: number;
   colorById: Record<string, string>;
+  onSelectSpace?: (index: number) => void;
 }) {
   const cells = useMemo(() => spaces, [spaces]);
 
   return (
     <group>
       <RoundedBox
-        args={[BOARD_SPAN + 0.35, 0.22, BOARD_SPAN + 0.35]}
-        radius={0.1}
+        args={[BOARD_SPAN + 0.4, 0.18, BOARD_SPAN + 0.4]}
+        radius={0.08}
         smoothness={3}
-        position={[0, -0.12, 0]}
+        position={[0, -0.1, 0]}
         receiveShadow
       >
-        <meshStandardMaterial color="#111111" roughness={0.6} metalness={0.1} />
+        <meshStandardMaterial color="#1a1a1c" roughness={0.7} metalness={0.05} />
       </RoundedBox>
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
-        <planeGeometry args={[BOARD_SPAN * 0.72, BOARD_SPAN * 0.72]} />
-        <meshStandardMaterial color="#2a2a2e" roughness={0.8} />
+        <planeGeometry args={[BOARD_SPAN * 0.7, BOARD_SPAN * 0.7]} />
+        <meshStandardMaterial color="#2a2a2e" roughness={0.85} />
       </mesh>
 
       <Text
-        position={[0, 0.05, 0]}
+        position={[0, 0.04, 0]}
         rotation={[-Math.PI / 2, 0, Math.PI / 4]}
-        fontSize={0.7}
-        color="#ef444488"
+        fontSize={0.55}
+        color="#ef444466"
         anchorX="center"
         anchorY="middle"
-        letterSpacing={0.12}
+        letterSpacing={0.1}
       >
         MONOPOLY
       </Text>
@@ -132,6 +149,7 @@ export default function Board3D({
           space={space}
           focused={space.index === focusIndex}
           ownerColor={space.ownerId ? colorById[space.ownerId] || '#fff' : null}
+          onSelect={onSelectSpace}
         />
       ))}
     </group>

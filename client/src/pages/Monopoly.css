@@ -471,13 +471,259 @@
 }
 
 @media (max-width: 480px) {
-  .monopoly-dice span {
-    width: 32px;
-    height: 32px;
-    font-size: 0.95rem;
-  }
-
   .monopoly-chip-cash {
     min-width: 76px;
   }
+}
+
+.monopoly-hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.monopoly-inv-btn {
+  position: relative;
+  border: 1px solid var(--m-line);
+  background: var(--m-bg-soft);
+  color: var(--m-text);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.monopoly-inv-count {
+  margin-left: 6px;
+  background: var(--m-red);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.7rem;
+}
+
+.monopoly-die-wrap {
+  position: relative;
+}
+
+.monopoly-die {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff;
+  color: #111;
+  font-weight: 800;
+  font-size: 1.25rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s;
+}
+
+.monopoly-die-wrap.is-rolling .monopoly-die {
+  animation: monoDieSpin 0.12s linear infinite;
+}
+
+.monopoly-die-wrap.is-bonus .monopoly-die {
+  box-shadow: 0 0 0 2px var(--m-gold), 0 3px 12px rgba(251, 191, 36, 0.5);
+}
+
+.monopoly-die-bonus {
+  position: absolute;
+  top: -10px;
+  right: -14px;
+  background: var(--m-gold);
+  color: #111;
+  font-size: 0.65rem;
+  font-weight: 800;
+  border-radius: 6px;
+  padding: 2px 5px;
+  animation: monoBonusPop 0.35s ease;
+}
+
+@keyframes monoDieSpin {
+  from { transform: rotate(-8deg) scale(0.96); }
+  to { transform: rotate(8deg) scale(1.04); }
+}
+
+@keyframes monoBonusPop {
+  from { transform: scale(0.5); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.monopoly-deed {
+  position: relative;
+  width: min(100%, 380px);
+  max-height: min(85vh, 560px);
+  overflow-y: auto;
+  background: #fffcf5;
+  color: #1c1408;
+  border-radius: 16px 16px 0 0;
+  padding: 0 18px 18px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  margin-top: auto;
+}
+
+@media (min-width: 821px) {
+  .monopoly-deed {
+    border-radius: 16px;
+    margin: auto;
+  }
+}
+
+.monopoly-deed-stripe {
+  height: 18px;
+  margin: 0 -18px 12px;
+  border-radius: 16px 16px 0 0;
+}
+
+.monopoly-deed-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: rgba(0, 0, 0, 0.08);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #1c1408;
+}
+
+.monopoly-deed-group {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b5744;
+  margin: 0 0 4px;
+}
+
+.monopoly-deed-title {
+  font-size: 1.35rem;
+  margin: 0 0 10px;
+  color: #1c1408;
+}
+
+.monopoly-deed-price,
+.monopoly-deed-owner,
+.monopoly-deed-upgrade,
+.monopoly-deed-meta {
+  font-size: 0.9rem;
+  color: #4a3b2a;
+  margin: 4px 0;
+}
+
+.monopoly-deed-section {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b5744;
+  margin: 14px 0 8px;
+}
+
+.monopoly-deed-rents {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.monopoly-deed-rents li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.monopoly-deed-rents li:last-child {
+  border-bottom: none;
+  background: rgba(251, 191, 36, 0.15);
+}
+
+.monopoly-deed .btn {
+  margin-top: 12px;
+}
+
+.monopoly-inventory {
+  width: min(100%, 400px);
+  max-height: min(80vh, 520px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--m-bg-elev);
+  border: 1px solid var(--m-line);
+  border-radius: 16px 16px 0 0;
+  padding: 14px;
+  margin-top: auto;
+}
+
+@media (min-width: 821px) {
+  .monopoly-inventory {
+    border-radius: 16px;
+    margin: auto;
+  }
+}
+
+.monopoly-inventory-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.monopoly-inventory-head h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.monopoly-inventory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.monopoly-inventory-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--m-line);
+  background: var(--m-bg-soft);
+  color: var(--m-text);
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.monopoly-inventory-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.monopoly-inventory-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.monopoly-inventory-price {
+  color: var(--m-gold);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
