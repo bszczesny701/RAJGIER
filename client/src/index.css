@@ -1214,7 +1214,7 @@ body {
   .grid-cell { font-size: 0.55rem; }
 }
 
-/* Krzyżówka */
+/* Krzy?wka */
 .crossword-page {
   padding-bottom: 48px;
 }
@@ -1673,7 +1673,7 @@ body {
 }
 
 .unos-card-back::after {
-  content: '🃏';
+  content: '??';
   position: absolute;
   inset: 0;
   display: flex;
@@ -1722,7 +1722,7 @@ body {
   }
 }
 
-/* --- Czółko --- */
+/* --- Cz?ko --- */
 .czolko-page {
   padding-bottom: 48px;
 }
@@ -2029,7 +2029,7 @@ body {
   cursor: not-allowed;
 }
 
-/* Czółko — karta ustawień w lobby */
+/* Cz?ko ? karta ustawie? w lobby */
 .czolko-setup-card {
   position: relative;
   margin-top: 14px;
@@ -2424,7 +2424,7 @@ body {
   color: #a5b4fc;
 }
 
-/* �� Home / Lobby mobile shell �� */
+/* Home / Lobby mobile shell */
 .app-nav-home-slim {
   padding-top: calc(8px + env(safe-area-inset-top, 0px));
   padding-bottom: 8px;
