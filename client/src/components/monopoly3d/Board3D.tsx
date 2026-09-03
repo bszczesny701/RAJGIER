@@ -23,7 +23,7 @@ function SpaceMesh({
   const corner = isCorner(space.index);
   const baseH = corner ? 0.28 : 0.18;
   const strip = GROUP_COLORS[space.group] || GROUP_COLORS.special;
-  const baseColor = corner ? '#3d2a6b' : '#2a1a4a';
+  const baseColor = corner ? '#e8d9b8' : '#f4ead5';
   const label = shortLabel(space);
 
   return (
@@ -37,11 +37,11 @@ function SpaceMesh({
         receiveShadow
       >
         <meshStandardMaterial
-          color={focused ? '#4a3578' : baseColor}
-          roughness={0.45}
-          metalness={0.08}
-          emissive={focused ? '#fbbf24' : '#000000'}
-          emissiveIntensity={focused ? 0.35 : 0}
+          color={focused ? '#fff6e0' : baseColor}
+          roughness={0.5}
+          metalness={0.05}
+          emissive={focused ? '#c9a227' : '#000000'}
+          emissiveIntensity={focused ? 0.22 : 0}
         />
       </RoundedBox>
 
@@ -65,13 +65,13 @@ function SpaceMesh({
         position={[0, baseH + 0.12, 0.05]}
         rotation={[-Math.PI / 2, 0, 0]}
         fontSize={corner ? 0.18 : 0.14}
-        color="#f8fafc"
+        color="#1c1408"
         anchorX="center"
         anchorY="middle"
         maxWidth={CELL * 0.75}
         textAlign="center"
-        outlineWidth={0.012}
-        outlineColor="#0f0720"
+        outlineWidth={0.01}
+        outlineColor="#f4ead5"
       >
         {label}
       </Text>
@@ -79,7 +79,7 @@ function SpaceMesh({
       {focused && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
           <ringGeometry args={[CELL * 0.38, CELL * 0.48, 32]} />
-          <meshBasicMaterial color="#fbbf24" transparent opacity={0.85} />
+          <meshBasicMaterial color="#c41e3a" transparent opacity={0.85} />
         </mesh>
       )}
     </group>
@@ -106,19 +106,19 @@ export default function Board3D({
         position={[0, -0.12, 0]}
         receiveShadow
       >
-        <meshStandardMaterial color="#1a0f2e" roughness={0.55} metalness={0.05} />
+        <meshStandardMaterial color="#2a1a0c" roughness={0.55} metalness={0.08} />
       </RoundedBox>
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
         <planeGeometry args={[BOARD_SPAN * 0.72, BOARD_SPAN * 0.72]} />
-        <meshStandardMaterial color="#24153f" roughness={0.7} />
+        <meshStandardMaterial color="#e8d9b8" roughness={0.75} />
       </mesh>
 
       <Text
         position={[0, 0.05, 0]}
         rotation={[-Math.PI / 2, 0, Math.PI / 4]}
         fontSize={0.7}
-        color="#fbbf2488"
+        color="#c41e3aaa"
         anchorX="center"
         anchorY="middle"
         letterSpacing={0.12}
