@@ -1,75 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import Board2DFallback from '../components/monopoly3d/Board2DFallback';
+import type { MonopolyState } from '../components/monopoly3d/types';
+import { TOKEN_COLORS } from '../components/monopoly3d/boardLayout';
 import './Monopoly.css';
 
-interface MonopolySpace {
-  index: number;
-  type: string;
-  name: string;
-  group: string;
-  price: number | null;
-  tax: number | null;
-  ownerId: string | null;
-}
-
-interface MonopolyToken {
-  id: string;
-  name: string;
-  cash: number;
-  position: number;
-  inJail: boolean;
-  jailTurns: number;
-  bankrupt: boolean;
-}
-
-interface MonopolyState {
-  phase: string;
-  currentPlayerId: string | null;
-  currentTurnName: string;
-  winner: string | null;
-  lastDice: { d1: number; d2: number; total: number; doubles: boolean } | null;
-  pendingCard: { id: string; text: string } | null;
-  log: string[];
-  spaces: MonopolySpace[];
-  tokens: MonopolyToken[];
-  myId: string;
-  myCash: number;
-  myPosition: number;
-  myBankrupt: boolean;
-  inJail: boolean;
-  isMyTurn: boolean;
-  canRoll: boolean;
-  canPayJail: boolean;
-  canBuy: boolean;
-  canSkipBuy: boolean;
-  canEndTurn: boolean;
-  buyOffer: { index: number; name: string; price: number } | null;
-  jailFee: number;
-  myName: string;
-}
-
-const TOKEN_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316'];
-
-function spaceToGrid(index: number): { row: number; col: number } {
-  if (index >= 0 && index <= 10) return { row: 10, col: 10 - index };
-  if (index >= 11 && index <= 20) return { row: 10 - (index - 10), col: 0 };
-  if (index >= 21 && index <= 30) return { row: 0, col: index - 20 };
-  return { row: index - 30, col: 10 };
-}
-
-function shortLabel(space: MonopolySpace): string {
-  if (space.type === 'go') return 'START';
-  if (space.type === 'jail') return 'Więzienie';
-  if (space.type === 'parking') return 'Parking';
-  if (space.type === 'gotojail') return 'Do więzienia';
-  if (space.type === 'chance') return 'Szansa';
-  if (space.type === 'chest') return 'Kasa';
-  if (space.type === 'tax') return `Podatek ${space.tax}`;
-  if (space.type === 'rail') return space.name;
-  if (space.type === 'utility') return space.name;
-  return space.name.replace(/^Inwestycja\s+/i, '');
-}
+const MonopolyScene = lazy(() => import('../components/monopoly3d/MonopolyScene'));
 
 export default function Monopoly() {
   const navigate = useNavigate();
@@ -134,12 +71,13 @@ export default function Monopoly() {
     return map;
   }, [state?.tokens]);
 
-  const focusSpace = useMemo(() => {
-    if (!state?.spaces?.length) return null;
-    const idx = state.isMyTurn ? state.myPosition : (state.tokens.find((t) => t.id === state.currentPlayerId)?.position ?? state.myPosition);
-    return state.spaces[idx] || null;
+  const focusIndex = useMemo(() => {
+    if (!state) return 0;
+    if (state.isMyTurn) return state.myPosition;
+    return state.tokens.find((t) => t.id === state.currentPlayerId)?.position ?? state.myPosition;
   }, [state]);
 
+  const focusSpace = state?.spaces[focusIndex] ?? null;
   const showCard = state?.pendingCard && state.pendingCard.id !== cardDismissed;
 
   if (!room) return null;
@@ -163,10 +101,15 @@ export default function Monopoly() {
           <div className="monopoly-hud">
             <div className="monopoly-hud-main">
               <p className="monopoly-turn">
-                Tura: <strong style={{ color: colorById[state.currentPlayerId || ''] }}>{state.currentTurnName}</strong>
+                Tura:{' '}
+                <strong style={{ color: colorById[state.currentPlayerId || ''] }}>
+                  {state.currentTurnName}
+                </strong>
                 {state.isMyTurn ? ' (Ty)' : ''}
               </p>
-              <p className="monopoly-cash">Twój stan: <strong>{state.myCash}</strong></p>
+              <p className="monopoly-cash">
+                Twój stan: <strong>{state.myCash}</strong>
+              </p>
             </div>
             {state.lastDice && (
               <div className="monopoly-dice" aria-label="Ostatni rzut">
@@ -178,44 +121,33 @@ export default function Monopoly() {
 
           <div className="monopoly-layout">
             <div className="monopoly-board-wrap">
-              <div className="monopoly-board" role="grid" aria-label="Plansza Monopoly">
-                <div className="monopoly-center" aria-hidden>MONOPOLY</div>
-                {state.spaces.map((space) => {
-                  const { row, col } = spaceToGrid(space.index);
-                  const tokensHere = state.tokens.filter((t) => !t.bankrupt && t.position === space.index);
-                  const isFocus = focusSpace?.index === space.index;
-                  const isCorner = [0, 10, 20, 30].includes(space.index);
-
-                  return (
-                    <div
-                      key={space.index}
-                      className={`monopoly-cell group-${space.group}${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}`}
-                      style={{ gridRow: row + 1, gridColumn: col + 1 }}
-                      title={space.name}
-                    >
-                      <span className={`monopoly-cell-bar group-${space.group}`} />
-                      <span className="monopoly-cell-label">{shortLabel(space)}</span>
-                      {space.ownerId && (
-                        <span
-                          className="monopoly-owner-dot"
-                          style={{ background: colorById[space.ownerId] }}
-                          title="Właściciel"
-                        />
-                      )}
-                      <div className="monopoly-tokens">
-                        {tokensHere.map((t) => (
-                          <span
-                            key={t.id}
-                            className={`monopoly-token${t.id === playerId ? ' is-me' : ''}`}
-                            style={{ background: colorById[t.id] }}
-                            title={t.name}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <Suspense
+                fallback={(
+                  <Board2DFallback
+                    spaces={state.spaces}
+                    tokens={state.tokens}
+                    focusIndex={focusIndex}
+                    colorById={colorById}
+                    myId={playerId}
+                  />
+                )}
+              >
+                <MonopolyScene
+                  state={state}
+                  focusIndex={focusIndex}
+                  myId={playerId}
+                  colorById={colorById}
+                  fallback={(
+                    <Board2DFallback
+                      spaces={state.spaces}
+                      tokens={state.tokens}
+                      focusIndex={focusIndex}
+                      colorById={colorById}
+                      myId={playerId}
+                    />
+                  )}
+                />
+              </Suspense>
             </div>
 
             <div className="monopoly-side">
@@ -232,7 +164,8 @@ export default function Monopoly() {
                     )}
                     {focusSpace.ownerId && (
                       <p className="monopoly-focus-meta">
-                        Właściciel: {state.tokens.find((t) => t.id === focusSpace.ownerId)?.name || '—'}
+                        Właściciel:{' '}
+                        {state.tokens.find((t) => t.id === focusSpace.ownerId)?.name || '—'}
                       </p>
                     )}
                   </>
