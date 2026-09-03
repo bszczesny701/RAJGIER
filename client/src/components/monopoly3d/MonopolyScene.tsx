@@ -1,10 +1,114 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { MapControls, OrthographicCamera } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import * as THREE from 'three';
 import Board3D from './Board3D';
 import Token3D from './Token3D';
 import type { MonopolyState } from './types';
 import { TOKEN_COLORS } from './boardLayout';
+
+const TAP_PX = 10;
+
+/** Po zgubionym pointerup MapControls zostaje w stanie „drag” i mapa umiera. */
+function forceReleaseControls(controls: unknown) {
+  const c = controls as {
+    enabled?: boolean;
+    state?: number;
+    _pointers?: unknown[];
+    _pointerPositions?: Record<string, unknown>;
+  } | null;
+  if (!c) return;
+  c.enabled = true;
+  if (Array.isArray(c._pointers)) c._pointers.length = 0;
+  if (c._pointerPositions) {
+    for (const key of Object.keys(c._pointerPositions)) delete c._pointerPositions[key];
+  }
+  // OrbitControls STATE.NONE === -1
+  if (typeof c.state === 'number') c.state = -1;
+}
+
+function ControlsSafetyNet() {
+  const controls = useThree((s) => s.controls);
+
+  useEffect(() => {
+    const release = () => forceReleaseControls(controls);
+    window.addEventListener('pointercancel', release);
+    window.addEventListener('blur', release);
+    document.addEventListener('visibilitychange', release);
+    return () => {
+      window.removeEventListener('pointercancel', release);
+      window.removeEventListener('blur', release);
+      document.removeEventListener('visibilitychange', release);
+    };
+  }, [controls]);
+
+  return null;
+}
+
+/** Tap → pole bez handlerów R3F na meshach (nie kradną gestów MapControls). */
+function SpaceTapSelect({ onSelect }: { onSelect?: (index: number) => void }) {
+  const { gl, camera, scene, controls } = useThree();
+  const down = useRef<{ x: number; y: number } | null>(null);
+  const raycaster = useMemo(() => new THREE.Raycaster(), []);
+  const ndc = useMemo(() => new THREE.Vector2(), []);
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+
+  useEffect(() => {
+    const el = gl.domElement;
+
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      // Capture przed MapControls: zdejmij zombie-drag, potem sterowanie dostaje czysty gest.
+      if (e.isPrimary) forceReleaseControls(controls);
+      down.current = { x: e.clientX, y: e.clientY };
+    };
+
+    const onUp = (e: PointerEvent) => {
+      const start = down.current;
+      down.current = null;
+
+      const select = onSelectRef.current;
+      if (!start || !select) return;
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > TAP_PX) return;
+
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+
+      const hits = raycaster.intersectObjects(scene.children, true);
+      for (const hit of hits) {
+        let obj: THREE.Object3D | null = hit.object;
+        while (obj) {
+          const idx = obj.userData?.spaceIndex;
+          if (typeof idx === 'number') {
+            select(idx);
+            return;
+          }
+          obj = obj.parent;
+        }
+      }
+    };
+
+    const onCancel = () => {
+      down.current = null;
+      forceReleaseControls(controls);
+    };
+
+    el.addEventListener('pointerdown', onDown, { capture: true, passive: true });
+    el.addEventListener('pointerup', onUp, { passive: true });
+    el.addEventListener('pointercancel', onCancel, { passive: true });
+    return () => {
+      el.removeEventListener('pointerdown', onDown, true);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onCancel);
+    };
+  }, [gl, camera, scene, controls, raycaster, ndc]);
+
+  return null;
+}
 
 function SceneContent({
   state,
@@ -12,27 +116,18 @@ function SceneContent({
   myId,
   colorById,
   onSelectSpace,
-  onControlsBusy,
 }: {
   state: MonopolyState;
   focusIndex: number;
   myId: string | null;
   colorById: Record<string, string>;
   onSelectSpace?: (index: number) => void;
-  onControlsBusy: (busy: boolean) => void;
 }) {
   const { invalidate } = useThree();
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     invalidate();
   }, [state, focusIndex, invalidate]);
-
-  useEffect(() => {
-    return () => {
-      if (settleTimer.current) clearTimeout(settleTimer.current);
-    };
-  }, []);
 
   const slotsBySpace = useMemo(() => {
     const map: Record<number, string[]> = {};
@@ -71,23 +166,11 @@ function SceneContent({
         minZoom={28}
         maxZoom={70}
         screenSpacePanning
-        onStart={() => {
-          if (settleTimer.current) clearTimeout(settleTimer.current);
-          onControlsBusy(true);
-        }}
-        onChange={() => invalidate()}
-        onEnd={() => {
-          if (settleTimer.current) clearTimeout(settleTimer.current);
-          settleTimer.current = setTimeout(() => onControlsBusy(false), 50);
-        }}
       />
+      <ControlsSafetyNet />
+      <SpaceTapSelect onSelect={onSelectSpace} />
 
-      <Board3D
-        spaces={state.spaces}
-        focusIndex={focusIndex}
-        colorById={colorById}
-        onSelectSpace={onSelectSpace}
-      />
+      <Board3D spaces={state.spaces} focusIndex={focusIndex} colorById={colorById} />
 
       {state.tokens
         .filter((t) => !t.bankrupt)
@@ -137,7 +220,6 @@ export default function MonopolyScene({
   onSelectSpace?: (index: number) => void;
 }) {
   const ok = useMemo(() => supportsWebGL(), []);
-  const [controlsBusy, setControlsBusy] = useState(false);
 
   if (!ok) {
     return <>{fallback}</>;
@@ -148,7 +230,7 @@ export default function MonopolyScene({
       <Canvas
         shadows
         dpr={[1, 1.5]}
-        frameloop={controlsBusy ? 'always' : 'demand'}
+        frameloop="always"
         gl={{
           antialias: true,
           powerPreference: 'high-performance',
@@ -165,7 +247,6 @@ export default function MonopolyScene({
             myId={myId}
             colorById={colorById}
             onSelectSpace={onSelectSpace}
-            onControlsBusy={setControlsBusy}
           />
         </Suspense>
       </Canvas>

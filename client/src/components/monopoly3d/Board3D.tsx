@@ -1,5 +1,5 @@
 import { RoundedBox, Text } from '@react-three/drei';
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import type { MonopolySpace } from './types';
 import {
   BOARD_SPAN,
@@ -10,18 +10,14 @@ import {
   shortLabel,
 } from './boardLayout';
 
-const TAP_PX = 8;
-
 function SpaceMesh({
   space,
   focused,
   ownerColor,
-  onSelect,
 }: {
   space: MonopolySpace;
   focused: boolean;
   ownerColor: string | null;
-  onSelect?: (index: number) => void;
 }) {
   const { x, z } = indexToWorld(space.index);
   const corner = isCorner(space.index);
@@ -30,28 +26,9 @@ function SpaceMesh({
   const baseColor = corner ? '#fff8ea' : '#fffcf5';
   const label = shortLabel(space);
   const isJail = space.type === 'jail' || space.type === 'gotojail';
-  const pointerDown = useRef<{ x: number; y: number } | null>(null);
 
   return (
-    <group
-      position={[x, 0, z]}
-      onPointerDown={(e) => {
-        // Nie stopPropagation — MapControls musi dostać gest pan/zoom.
-        pointerDown.current = { x: e.clientX, y: e.clientY };
-      }}
-      onClick={(e) => {
-        const start = pointerDown.current;
-        pointerDown.current = null;
-        if (!onSelect || !start) return;
-        const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
-        if (dist > TAP_PX) return;
-        e.stopPropagation();
-        onSelect(space.index);
-      }}
-      onPointerCancel={() => {
-        pointerDown.current = null;
-      }}
-    >
+    <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
       <RoundedBox
         args={[CELL * 0.94, baseH, CELL * 0.94]}
         radius={0.04}
@@ -119,12 +96,10 @@ export default function Board3D({
   spaces,
   focusIndex,
   colorById,
-  onSelectSpace,
 }: {
   spaces: MonopolySpace[];
   focusIndex: number;
   colorById: Record<string, string>;
-  onSelectSpace?: (index: number) => void;
 }) {
   const cells = useMemo(() => spaces, [spaces]);
 
@@ -163,7 +138,6 @@ export default function Board3D({
           space={space}
           focused={space.index === focusIndex}
           ownerColor={space.ownerId ? colorById[space.ownerId] || '#fff' : null}
-          onSelect={onSelectSpace}
         />
       ))}
     </group>
