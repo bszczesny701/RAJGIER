@@ -15,19 +15,20 @@ function GameOptionButton({
   playerCount,
   onSelect,
 }: {
-  game: GameId;
+  game: Exclude<GameId, 'czolko'>;
   playerCount: number;
-  onSelect: (game: GameId) => void;
+  onSelect: (game: Exclude<GameId, 'czolko'>) => void;
 }) {
   const enabled = canStartGame(game, playerCount);
   const range = getGamePlayerRangeLabel(game);
 
-  const meta: Record<GameId, { emoji: string; title: string; desc: string }> = {
+  const meta: Record<Exclude<GameId, 'czolko'>, { emoji: string; title: string; desc: string }> = {
     battleship: { emoji: '🚢', title: 'Statki', desc: 'Zatop flotę rywala' },
     wordsearch: { emoji: '🔍', title: 'Wykreślanka', desc: 'Kto pierwszy znajdzie słowa' },
     crossword: { emoji: '📝', title: 'Krzyżówka', desc: 'Kto więcej haseł odgadnie' },
     sudoku: { emoji: '🔢', title: 'Sudoku', desc: 'Kto szybciej ułoży' },
     unos: { emoji: '🃏', title: 'UNOS', desc: 'Pojedynek kart' },
+    monopoly: { emoji: '🏠', title: 'Monopoly', desc: 'Inwestycje, losy, 2–6 graczy' },
   };
 
   const info = meta[game];
@@ -212,7 +213,7 @@ export default function Lobby() {
           )}
           {playerCount >= 2 && playerCount < MAX_ROOM_PLAYERS && (
             <li style={{ color: 'var(--text-muted)', fontSize: '0.85rem', paddingTop: 12 }}>
-              Możesz czekać na więcej graczy (Czółko i UNOS: do {MAX_ROOM_PLAYERS})
+              Możesz czekać na więcej graczy (Monopoly: do {MAX_ROOM_PLAYERS}, UNOS/Czółko: do 4)
             </li>
           )}
         </ul>
@@ -230,6 +231,7 @@ export default function Lobby() {
             <GameOptionButton game="crossword" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="sudoku" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="unos" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="monopoly" playerCount={playerCount} onSelect={selectGame} />
           </div>
           <CzolkoGameOption
             playerCount={playerCount}
@@ -279,7 +281,9 @@ export default function Lobby() {
                           ? 'Pierwszy bez kart!'
                           : gameOver.game === 'czolko'
                             ? 'Pierwszy do 5 trafień!'
-                            : 'Znalazłeś więcej słów!'}
+                            : gameOver.game === 'monopoly'
+                              ? 'Ostatni z majątkiem wygrywa!'
+                              : 'Znalazłeś więcej słów!'}
             </p>
             {isHost ? (
               <button className="btn btn-primary" onClick={() => { clearGameOver(); backToLobby(); }}>

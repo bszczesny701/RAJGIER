@@ -32,7 +32,7 @@ export default function Home() {
       <div className="logo">
         <span className="logo-icon">🎮</span>
         <h1>RAJ GIER</h1>
-        <p>Gry online — od 2 do 4 graczy w pokoju</p>
+        <p>Gry online — od 2 do 6 graczy w pokoju</p>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 16, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -151,6 +151,10 @@ export default function Home() {
           <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
             <span style={{ fontSize: '1.5rem' }}>🎯</span>
             <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Czółko</p>
+          </div>
+          <div style={{ textAlign: 'center', padding: '12px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 10 }}>
+            <span style={{ fontSize: '1.5rem' }}>🏠</span>
+            <p style={{ fontSize: '0.8rem', marginTop: 4 }}>Monopoly</p>
           </div>
         </div>
       </div>

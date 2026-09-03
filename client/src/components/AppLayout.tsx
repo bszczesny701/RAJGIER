@@ -11,6 +11,7 @@ import Crossword from '../pages/Crossword';
 import Sudoku from '../pages/Sudoku';
 import Unos from '../pages/Unos';
 import Czolko from '../pages/Czolko';
+import Monopoly from '../pages/Monopoly';
 
 function GameAutoStart() {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ export default function AppLayout() {
           <Route path="/sudoku" element={<Sudoku />} />
           <Route path="/unos" element={<Unos />} />
           <Route path="/czolko" element={<Czolko />} />
+          <Route path="/monopoly" element={<Monopoly />} />
         </Routes>
       </main>
     </div>

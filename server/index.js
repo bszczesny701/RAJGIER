@@ -46,6 +46,15 @@ const {
   getPeopleForPool,
   normalizeCharacterPool,
 } = require('./games/czolko');
+const {
+  createMonopolyState,
+  monopolyRoll,
+  monopolyPayJail,
+  monopolyBuy,
+  monopolySkipBuy,
+  monopolyEndTurn,
+  getPublicMonopolyState,
+} = require('./games/monopoly');
 
 const app = express();
 app.use(cors());
@@ -61,7 +70,7 @@ const io = new Server(server, {
 });
 
 const rooms = new Map();
-const MAX_ROOM_PLAYERS = 4;
+const MAX_ROOM_PLAYERS = 6;
 
 const GAME_PLAYER_LIMITS = {
   battleship: { min: 2, max: 2 },
@@ -70,6 +79,7 @@ const GAME_PLAYER_LIMITS = {
   sudoku: { min: 2, max: 2 },
   unos: { min: 2, max: 4 },
   czolko: { min: 2, max: 4 },
+  monopoly: { min: 2, max: 6 },
 };
 
 function generateRoomCode() {
@@ -201,6 +211,15 @@ function buildCzolkoPayload(room, playerId) {
   };
 }
 
+function buildMonopolyPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  const playerNames = Object.fromEntries(room.players.map((p) => [p.id, p.name]));
+  return {
+    ...getPublicMonopolyState(room.gameState, playerId, playerNames),
+    myName: player?.name,
+  };
+}
+
 function sendBattleshipState(room, player, targetSocket) {
   targetSocket.emit('battleshipUpdate', buildBattleshipPayload(room, player.id));
 }
@@ -223,6 +242,10 @@ function sendUnosState(room, player, targetSocket) {
 
 function sendCzolkoState(room, player, targetSocket) {
   targetSocket.emit('czolkoUpdate', buildCzolkoPayload(room, player.id));
+}
+
+function sendMonopolyState(room, player, targetSocket) {
+  targetSocket.emit('monopolyUpdate', buildMonopolyPayload(room, player.id));
 }
 
 function emitRoomUpdate(room) {
@@ -271,6 +294,13 @@ function emitCzolkoUpdate(room) {
   }
 }
 
+function emitMonopolyUpdate(room) {
+  for (const player of room.players) {
+    if (!player.socketId) continue;
+    io.to(player.socketId).emit('monopolyUpdate', buildMonopolyPayload(room, player.id));
+  }
+}
+
 function startGame(room, game, gameOptions = {}) {
   room.game = game;
   room.status = 'playing';
@@ -299,6 +329,9 @@ function startGame(room, game, gameOptions = {}) {
   } else if (game === 'czolko') {
     room.gameState = createCzolkoState(room.players.map((p) => p.id), gameOptions);
     emitCzolkoUpdate(room);
+  } else if (game === 'monopoly') {
+    room.gameState = createMonopolyState(room.players.map((p) => p.id));
+    emitMonopolyUpdate(room);
   }
 
   emitRoomUpdate(room);
@@ -396,7 +429,7 @@ io.on('connection', (socket) => {
     });
     if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
-    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos', 'czolko'].includes(game)) return;
+    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos', 'czolko', 'monopoly'].includes(game)) return;
 
     const limits = GAME_PLAYER_LIMITS[game];
     const count = room.players.length;
@@ -804,6 +837,58 @@ io.on('connection', (socket) => {
     }
   });
 
+  function finishMonopolyIfWon(room) {
+    if (!room.gameState?.winner) return;
+    const winner = room.players.find((p) => p.id === room.gameState.winner);
+    io.to(room.code).emit('gameOver', {
+      winnerId: room.gameState.winner,
+      winnerName: winner?.name,
+      game: 'monopoly',
+    });
+    room.status = 'finished';
+    emitRoomUpdate(room);
+  }
+
+  function handleMonopolyAction(socket, currentRoomRef, payload, actionFn) {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: payload.sessionId,
+      roomCode: payload.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = actionFn(room.gameState, player.id);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+    finishMonopolyIfWon(room);
+  }
+
+  const currentRoomRef = { get value() { return currentRoom; }, set value(v) { currentRoom = v; } };
+
+  socket.on('monopolyRoll', (payload) => {
+    handleMonopolyAction(socket, currentRoomRef, payload || {}, monopolyRoll);
+  });
+
+  socket.on('monopolyPayJail', (payload) => {
+    handleMonopolyAction(socket, currentRoomRef, payload || {}, monopolyPayJail);
+  });
+
+  socket.on('monopolyBuy', (payload) => {
+    handleMonopolyAction(socket, currentRoomRef, payload || {}, monopolyBuy);
+  });
+
+  socket.on('monopolySkipBuy', (payload) => {
+    handleMonopolyAction(socket, currentRoomRef, payload || {}, monopolySkipBuy);
+  });
+
+  socket.on('monopolyEndTurn', (payload) => {
+    handleMonopolyAction(socket, currentRoomRef, payload || {}, monopolyEndTurn);
+  });
+
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
@@ -825,6 +910,8 @@ io.on('connection', (socket) => {
       sendUnosState(room, player, socket);
     } else if (room.game === 'czolko') {
       sendCzolkoState(room, player, socket);
+    } else if (room.game === 'monopoly') {
+      sendMonopolyState(room, player, socket);
     }
   });
 
@@ -905,6 +992,8 @@ io.on('connection', (socket) => {
       sendUnosState(room, player, socket);
     } else if (room.game === 'czolko' && room.gameState) {
       sendCzolkoState(room, player, socket);
+    } else if (room.game === 'monopoly' && room.gameState) {
+      sendMonopolyState(room, player, socket);
     }
   });
 

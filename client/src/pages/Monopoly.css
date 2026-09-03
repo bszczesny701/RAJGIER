@@ -1,0 +1,305 @@
+.monopoly-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+
+.monopoly-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.monopoly-hud-main {
+  min-width: 0;
+}
+
+.monopoly-turn,
+.monopoly-cash {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.monopoly-turn strong,
+.monopoly-cash strong {
+  color: var(--accent-gold);
+}
+
+.monopoly-dice {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.monopoly-dice span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #fff;
+  color: #1a0f2e;
+  font-weight: 700;
+  font-size: 1.1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.monopoly-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.monopoly-board {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  grid-template-rows: repeat(11, 1fr);
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: min(100%, 72vh);
+  margin: 0 auto;
+  background: #1a1230;
+  border: 2px solid rgba(255, 215, 0, 0.35);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.monopoly-center {
+  grid-row: 2 / 11;
+  grid-column: 2 / 11;
+  display: grid;
+  place-items: center;
+  font-size: clamp(0.7rem, 3vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: rgba(255, 215, 0, 0.45);
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, rgba(255, 140, 66, 0.08), transparent 70%);
+}
+
+.monopoly-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px;
+  background: rgba(45, 27, 78, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.monopoly-cell.is-corner {
+  background: rgba(60, 36, 100, 0.98);
+}
+
+.monopoly-cell.is-focus {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: -2px;
+  z-index: 2;
+}
+
+.monopoly-cell-bar {
+  height: 4px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  background: transparent;
+}
+
+.monopoly-cell-label {
+  font-size: clamp(0.45rem, 1.6vw, 0.65rem);
+  line-height: 1.1;
+  color: var(--text-primary);
+  text-align: center;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monopoly-owner-dot {
+  position: absolute;
+  top: 6px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.monopoly-tokens {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: center;
+  padding-bottom: 1px;
+}
+
+.monopoly-token {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.monopoly-token.is-me {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.group-brown .monopoly-cell-bar,
+.monopoly-cell-bar.group-brown { background: #8b4513; }
+.group-lightblue .monopoly-cell-bar,
+.monopoly-cell-bar.group-lightblue { background: #87ceeb; }
+.group-pink .monopoly-cell-bar,
+.monopoly-cell-bar.group-pink { background: #ff69b4; }
+.group-orange .monopoly-cell-bar,
+.monopoly-cell-bar.group-orange { background: #ff8c42; }
+.group-red .monopoly-cell-bar,
+.monopoly-cell-bar.group-red { background: #ef4444; }
+.group-yellow .monopoly-cell-bar,
+.monopoly-cell-bar.group-yellow { background: #eab308; }
+.group-green .monopoly-cell-bar,
+.monopoly-cell-bar.group-green { background: #22c55e; }
+.group-darkblue .monopoly-cell-bar,
+.monopoly-cell-bar.group-darkblue { background: #1d4ed8; }
+.group-rail .monopoly-cell-bar,
+.monopoly-cell-bar.group-rail { background: #94a3b8; }
+.group-utility .monopoly-cell-bar,
+.monopoly-cell-bar.group-utility { background: #38bdf8; }
+.group-special .monopoly-cell-bar,
+.monopoly-cell-bar.group-special { background: rgba(255, 215, 0, 0.35); }
+
+.monopoly-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.monopoly-focus h3,
+.monopoly-players h3,
+.monopoly-actions h3,
+.monopoly-log h3 {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.monopoly-focus-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent-gold);
+  margin-bottom: 4px;
+}
+
+.monopoly-focus-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.monopoly-players ul,
+.monopoly-log ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.monopoly-players li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.monopoly-players li.is-out {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+.monopoly-player-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.monopoly-player-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monopoly-player-cash {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.monopoly-action-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.monopoly-log {
+  max-height: 160px;
+  overflow: hidden;
+}
+
+.monopoly-log ul {
+  max-height: 120px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.monopoly-log li {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 4px;
+}
+
+@media (max-width: 820px) {
+  .monopoly-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .monopoly-board {
+    max-width: min(100%, 92vw);
+  }
+
+  .monopoly-side {
+    order: 2;
+  }
+}
+
+@media (max-width: 480px) {
+  .monopoly-cell-label {
+    font-size: 0.4rem;
+  }
+
+  .monopoly-token {
+    width: 7px;
+    height: 7px;
+  }
+
+  .monopoly-hud {
+    flex-wrap: wrap;
+  }
+}
