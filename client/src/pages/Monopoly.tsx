@@ -179,17 +179,21 @@ export default function Monopoly() {
       ) : (
         <>
           <div className="monopoly-hud">
-            <div className="monopoly-hud-main">
-              <p className="monopoly-turn">
-                Tura:{' '}
-                <strong style={{ color: colorById[state.currentPlayerId || ''] }}>
+            <div className="monopoly-hud-chips">
+              <div className="monopoly-chip">
+                <span className="monopoly-chip-label">Tura</span>
+                <span
+                  className="monopoly-chip-value"
+                  style={{ color: colorById[state.currentPlayerId || ''] }}
+                >
                   {state.currentTurnName}
-                </strong>
-                {state.isMyTurn ? ' (Ty)' : ''}
-              </p>
-              <p className="monopoly-cash">
-                Twój stan: <strong>{state.myCash}</strong>
-              </p>
+                  {state.isMyTurn ? ' · Ty' : ''}
+                </span>
+              </div>
+              <div className="monopoly-chip monopoly-chip-cash">
+                <span className="monopoly-chip-label">Saldo</span>
+                <span className="monopoly-chip-value">{state.myCash}</span>
+              </div>
             </div>
             {state.lastDice && (
               <div className="monopoly-dice" aria-label="Ostatni rzut">
@@ -257,15 +261,6 @@ export default function Monopoly() {
               <div className="card monopoly-actions monopoly-actions-desktop">
                 <h3>Akcje</h3>
                 <TurnActions state={state} emit={emit} />
-              </div>
-
-              <div className="card monopoly-log">
-                <h3>Dziennik</h3>
-                <ul>
-                  {[...state.log].reverse().map((line, i) => (
-                    <li key={`${line}-${i}`}>{line}</li>
-                  ))}
-                </ul>
               </div>
             </div>
           </div>

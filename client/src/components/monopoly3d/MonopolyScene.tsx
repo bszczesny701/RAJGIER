@@ -35,11 +35,11 @@ function SceneContent({
 
   return (
     <>
-      <color attach="background" args={['#0f3d2e']} />
-      <ambientLight intensity={0.62} />
+      <color attach="background" args={['#0a0a0b']} />
+      <ambientLight intensity={0.58} />
       <directionalLight
         castShadow
-        intensity={1.05}
+        intensity={1.1}
         position={[8, 14, 6]}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -50,7 +50,7 @@ function SceneContent({
         shadow-camera-top={12}
         shadow-camera-bottom={-12}
       />
-      <hemisphereLight args={['#fff4d6', '#0a2e22', 0.4]} />
+      <hemisphereLight args={['#f5f5f5', '#111111', 0.35]} />
 
       <OrthographicCamera makeDefault position={[10, 12, 10]} zoom={42} near={0.1} far={80} />
       <MapControls
@@ -128,7 +128,7 @@ export default function MonopolyScene({
           alpha: false,
         }}
         onCreated={({ gl }) => {
-          gl.setClearColor('#0f3d2e');
+          gl.setClearColor('#0a0a0b');
         }}
       >
         <Suspense fallback={null}>

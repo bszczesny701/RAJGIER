@@ -106,19 +106,19 @@ export default function Board3D({
         position={[0, -0.12, 0]}
         receiveShadow
       >
-        <meshStandardMaterial color="#2a1a0c" roughness={0.55} metalness={0.08} />
+        <meshStandardMaterial color="#111111" roughness={0.6} metalness={0.1} />
       </RoundedBox>
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
         <planeGeometry args={[BOARD_SPAN * 0.72, BOARD_SPAN * 0.72]} />
-        <meshStandardMaterial color="#e8d9b8" roughness={0.75} />
+        <meshStandardMaterial color="#2a2a2e" roughness={0.8} />
       </mesh>
 
       <Text
         position={[0, 0.05, 0]}
         rotation={[-Math.PI / 2, 0, Math.PI / 4]}
         fontSize={0.7}
-        color="#c41e3aaa"
+        color="#ef444488"
         anchorX="center"
         anchorY="middle"
         letterSpacing={0.12}
