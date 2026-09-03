@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { MonopolyToken } from './types';
+import type { PieceId } from './pieces';
 import { indexToWorld } from './boardLayout';
 
 const OFFSETS = [
@@ -12,6 +13,134 @@ const OFFSETS = [
   [-0.22, -0.18],
   [0, 0.28],
 ];
+
+function BodyMat({ color }: { color: string }) {
+  return <meshStandardMaterial color={color} roughness={0.35} metalness={0.2} />;
+}
+
+function PieceMesh({ piece, color }: { piece: PieceId; color: string }) {
+  if (piece === 'car') {
+    return (
+      <group>
+        <mesh position={[0, 0.1, 0]} castShadow>
+          <boxGeometry args={[0.38, 0.12, 0.22]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[0.02, 0.2, 0]} castShadow>
+          <boxGeometry args={[0.2, 0.1, 0.18]} />
+          <BodyMat color={color} />
+        </mesh>
+        {[
+          [-0.12, 0.12],
+          [-0.12, -0.12],
+          [0.12, 0.12],
+          [0.12, -0.12],
+        ].map(([wx, wz]) => (
+          <mesh key={`${wx},${wz}`} position={[wx, 0.05, wz]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.05, 0.05, 0.06, 10]} />
+            <meshStandardMaterial color="#1f2937" roughness={0.5} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+
+  if (piece === 'hat') {
+    return (
+      <group>
+        <mesh position={[0, 0.04, 0]} castShadow>
+          <cylinderGeometry args={[0.22, 0.22, 0.04, 20]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[0, 0.18, 0]} castShadow>
+          <cylinderGeometry args={[0.14, 0.14, 0.24, 16]} />
+          <BodyMat color={color} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (piece === 'dog') {
+    return (
+      <group>
+        <mesh position={[0, 0.14, 0]} castShadow>
+          <boxGeometry args={[0.28, 0.14, 0.14]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[0.16, 0.2, 0]} castShadow>
+          <boxGeometry args={[0.12, 0.12, 0.12]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[0.22, 0.16, 0]} castShadow>
+          <boxGeometry args={[0.08, 0.04, 0.04]} />
+          <BodyMat color={color} />
+        </mesh>
+        {[
+          [-0.08, 0.06],
+          [-0.08, -0.06],
+          [0.08, 0.06],
+          [0.08, -0.06],
+        ].map(([lx, lz]) => (
+          <mesh key={`${lx},${lz}`} position={[lx, 0.06, lz]} castShadow>
+            <boxGeometry args={[0.05, 0.1, 0.05]} />
+            <BodyMat color={color} />
+          </mesh>
+        ))}
+        <mesh position={[-0.16, 0.18, 0]} castShadow>
+          <boxGeometry args={[0.06, 0.04, 0.04]} />
+          <BodyMat color={color} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (piece === 'shoe') {
+    return (
+      <group>
+        <mesh position={[0.02, 0.08, 0]} castShadow>
+          <boxGeometry args={[0.32, 0.1, 0.16]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[-0.08, 0.16, 0]} castShadow>
+          <boxGeometry args={[0.14, 0.14, 0.16]} />
+          <BodyMat color={color} />
+        </mesh>
+      </group>
+    );
+  }
+
+  if (piece === 'boat') {
+    return (
+      <group>
+        <mesh position={[0, 0.08, 0]} castShadow>
+          <boxGeometry args={[0.36, 0.1, 0.16]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[0, 0.22, 0]} castShadow>
+          <boxGeometry args={[0.04, 0.28, 0.04]} />
+          <BodyMat color={color} />
+        </mesh>
+        <mesh position={[0.06, 0.24, 0]} rotation={[0, 0, -0.4]} castShadow>
+          <boxGeometry args={[0.18, 0.02, 0.12]} />
+          <meshStandardMaterial color="#f8fafc" roughness={0.5} />
+        </mesh>
+      </group>
+    );
+  }
+
+  return (
+    <group>
+      <mesh position={[0, 0.12, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.2, 0.22, 16]} />
+        <BodyMat color={color} />
+      </mesh>
+      <mesh position={[0, 0.34, 0]} castShadow>
+        <sphereGeometry args={[0.15, 16, 16]} />
+        <meshStandardMaterial color={color} roughness={0.3} metalness={0.25} />
+      </mesh>
+    </group>
+  );
+}
 
 export default function Token3D({
   token,
@@ -30,6 +159,7 @@ export default function Token3D({
   const wasJail = useRef(token.inJail);
   const prevPos = useRef(token.position);
   const { invalidate } = useThree();
+  const piece = (token.piece || 'pawn') as PieceId;
 
   const target = useMemo(() => {
     const { x, z } = indexToWorld(token.position);
@@ -95,14 +225,7 @@ export default function Token3D({
 
   return (
     <group ref={group} position={[target.x, 0, target.z]} scale={scale}>
-      <mesh position={[0, 0.12, 0]} castShadow>
-        <cylinderGeometry args={[0.16, 0.2, 0.22, 16]} />
-        <meshStandardMaterial color={color} roughness={0.35} metalness={0.2} />
-      </mesh>
-      <mesh position={[0, 0.34, 0]} castShadow>
-        <sphereGeometry args={[0.15, 16, 16]} />
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.25} />
-      </mesh>
+      <PieceMesh piece={piece} color={color} />
       {token.inJail && (
         <mesh position={[0, 0.42, 0]}>
           <torusGeometry args={[0.2, 0.025, 8, 16]} />

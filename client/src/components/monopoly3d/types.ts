@@ -18,6 +18,7 @@ export interface MonopolyToken {
   inJail: boolean;
   jailTurns: number;
   bankrupt: boolean;
+  piece: string;
 }
 
 export interface MonopolyState {

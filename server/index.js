@@ -53,6 +53,7 @@ const {
   monopolyBuy,
   monopolySkipBuy,
   monopolyEndTurn,
+  monopolySetPiece,
   getPublicMonopolyState,
 } = require('./games/monopoly');
 
@@ -887,6 +888,24 @@ io.on('connection', (socket) => {
 
   socket.on('monopolyEndTurn', (payload) => {
     handleMonopolyAction(socket, currentRoomRef, payload || {}, monopolyEndTurn);
+  });
+
+  socket.on('monopolySetPiece', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolySetPiece(room.gameState, player.id, data.piece);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
   });
 
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {

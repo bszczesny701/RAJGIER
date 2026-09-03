@@ -56,9 +56,11 @@ function SceneContent({
 
       <OrthographicCamera makeDefault position={[10, 12, 10]} zoom={42} near={0.1} far={80} />
       <MapControls
-        enableRotate={false}
+        enableRotate
         enableDamping
         dampingFactor={0.12}
+        minPolarAngle={0.35}
+        maxPolarAngle={1.15}
         minZoom={28}
         maxZoom={70}
         screenSpacePanning

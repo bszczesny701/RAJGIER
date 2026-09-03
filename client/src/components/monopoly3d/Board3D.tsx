@@ -1,5 +1,5 @@
 import { RoundedBox, Text } from '@react-three/drei';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { MonopolySpace } from './types';
 import {
   BOARD_SPAN,
@@ -9,6 +9,8 @@ import {
   isCorner,
   shortLabel,
 } from './boardLayout';
+
+const TAP_PX = 6;
 
 function SpaceMesh({
   space,
@@ -28,15 +30,26 @@ function SpaceMesh({
   const baseColor = corner ? '#fff8ea' : '#fffcf5';
   const label = shortLabel(space);
   const isJail = space.type === 'jail' || space.type === 'gotojail';
+  const pointerDown = useRef<{ x: number; y: number } | null>(null);
 
   return (
     <group
       position={[x, 0, z]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect?.(space.index);
+      onPointerDown={(e) => {
+        pointerDown.current = { x: e.clientX, y: e.clientY };
       }}
-      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => {
+        const start = pointerDown.current;
+        pointerDown.current = null;
+        if (!start || !onSelect) return;
+        const dist = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+        if (dist > TAP_PX) return;
+        e.stopPropagation();
+        onSelect(space.index);
+      }}
+      onPointerCancel={() => {
+        pointerDown.current = null;
+      }}
     >
       <RoundedBox
         args={[CELL * 0.94, baseH, CELL * 0.94]}

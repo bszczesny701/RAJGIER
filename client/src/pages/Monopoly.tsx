@@ -5,6 +5,7 @@ import Board2DFallback from '../components/monopoly3d/Board2DFallback';
 import PropertyDeed from '../components/monopoly3d/PropertyDeed';
 import type { MonopolySpace, MonopolyState } from '../components/monopoly3d/types';
 import { GROUP_COLORS, TOKEN_COLORS } from '../components/monopoly3d/boardLayout';
+import { PIECE_ICONS, PIECE_IDS, PIECE_LABELS, type PieceId } from '../components/monopoly3d/pieces';
 import './Monopoly.css';
 
 const MonopolyScene = lazy(() => import('../components/monopoly3d/MonopolyScene'));
@@ -98,6 +99,7 @@ export default function Monopoly() {
   const [noticeDismissed, setNoticeDismissed] = useState<string | null>(null);
   const [deedSpace, setDeedSpace] = useState<MonopolySpace | null>(null);
   const [inventoryOpen, setInventoryOpen] = useState(false);
+  const [piecePickerOpen, setPiecePickerOpen] = useState(false);
   const [diceRolling, setDiceRolling] = useState(false);
   const [displayDie, setDisplayDie] = useState<number | null>(null);
   const [bonusFlash, setBonusFlash] = useState(false);
@@ -161,9 +163,9 @@ export default function Monopoly() {
     }
   }, [state?.pendingNotice?.id, noticeDismissed]);
 
-  const emit = (event: string) => {
+  const emit = (event: string, extra?: Record<string, unknown>) => {
     if (!socket) return;
-    socket.emit(event, { sessionId, roomCode });
+    socket.emit(event, { sessionId, roomCode, ...extra });
   };
 
   const handleRoll = () => {
@@ -202,6 +204,19 @@ export default function Monopoly() {
       .map((s) => s.index);
     return idxs.map((i) => state.spaces[i]).filter(Boolean);
   }, [state, playerId]);
+
+  const myToken = useMemo(
+    () => state?.tokens.find((t) => t.id === playerId) || null,
+    [state?.tokens, playerId]
+  );
+
+  const takenPieces = useMemo(() => {
+    const set = new Set<string>();
+    state?.tokens.forEach((t) => {
+      if (!t.bankrupt && t.id !== playerId && t.piece) set.add(t.piece);
+    });
+    return set;
+  }, [state?.tokens, playerId]);
 
   const dieFace = displayDie ?? state?.lastDice?.d1 ?? null;
 
@@ -255,6 +270,18 @@ export default function Monopoly() {
             </div>
 
             <div className="monopoly-hud-right">
+              <button
+                type="button"
+                className="monopoly-inv-btn"
+                onClick={() => setPiecePickerOpen(true)}
+              >
+                Pionek
+                {myToken?.piece && (
+                  <span className="monopoly-piece-icon" aria-hidden>
+                    {PIECE_ICONS[(myToken.piece as PieceId)] || '♟'}
+                  </span>
+                )}
+              </button>
               <button
                 type="button"
                 className="monopoly-inv-btn"
@@ -323,7 +350,9 @@ export default function Monopoly() {
                 <ul>
                   {state.tokens.map((t) => (
                     <li key={t.id} className={t.bankrupt ? 'is-out' : ''}>
-                      <span className="monopoly-player-swatch" style={{ background: colorById[t.id] }} />
+                      <span className="monopoly-player-swatch" style={{ background: colorById[t.id] }}>
+                        {PIECE_ICONS[(t.piece as PieceId)] || '♟'}
+                      </span>
                       <span className="monopoly-player-name">
                         {t.name}
                         {t.id === playerId ? ' (Ty)' : ''}
@@ -347,6 +376,44 @@ export default function Monopoly() {
             <TurnActions state={state} emit={emit} onRoll={handleRoll} rolling={diceRolling} compact />
           </div>
         </>
+      )}
+
+      {piecePickerOpen && state && (
+        <div className="modal-overlay" onClick={() => setPiecePickerOpen(false)}>
+          <div className="monopoly-inventory monopoly-piece-picker" onClick={(e) => e.stopPropagation()}>
+            <div className="monopoly-inventory-head">
+              <h2>Wybierz pionek</h2>
+              <button type="button" className="monopoly-deed-close" onClick={() => setPiecePickerOpen(false)}>×</button>
+            </div>
+            <ul className="monopoly-piece-grid">
+              {PIECE_IDS.map((id) => {
+                const taken = takenPieces.has(id);
+                const selected = myToken?.piece === id;
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      className={`monopoly-piece-option${selected ? ' is-selected' : ''}${taken ? ' is-taken' : ''}`}
+                      disabled={taken}
+                      onClick={() => {
+                        if (taken) return;
+                        emit('monopolySetPiece', { piece: id });
+                        setPiecePickerOpen(false);
+                      }}
+                    >
+                      <span className="monopoly-piece-option-icon" aria-hidden>
+                        {PIECE_ICONS[id]}
+                      </span>
+                      <span className="monopoly-piece-option-label">{PIECE_LABELS[id]}</span>
+                      {taken && <span className="monopoly-piece-option-meta">Zajęty</span>}
+                      {selected && !taken && <span className="monopoly-piece-option-meta">Twój</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
       )}
 
       {inventoryOpen && state && (

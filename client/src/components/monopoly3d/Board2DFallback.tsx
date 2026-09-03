@@ -47,8 +47,10 @@ export default function Board2DFallback({
                   key={t.id}
                   className={`monopoly-token${t.id === myId ? ' is-me' : ''}`}
                   style={{ background: colorById[t.id] }}
-                  title={t.name}
-                />
+                  title={`${t.name}${t.piece ? ` (${t.piece})` : ''}`}
+                >
+                  {(t.piece || 'pawn').slice(0, 1).toUpperCase()}
+                </span>
               ))}
             </div>
           </div>

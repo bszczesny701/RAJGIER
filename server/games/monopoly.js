@@ -10,6 +10,8 @@ const {
 } = require('./monopolyBoard');
 const { CHANCE_CARDS, CHEST_CARDS, getCard } = require('./monopolyCards');
 
+const PIECES = ['pawn', 'car', 'hat', 'dog', 'shoe', 'boat'];
+
 function shuffle(arr) {
   const copy = [...arr];
   for (let i = copy.length - 1; i > 0; i--) {
@@ -315,15 +317,16 @@ function advanceTurn(state) {
 
 function createMonopolyState(playerIds) {
   const players = {};
-  for (const id of playerIds) {
+  playerIds.forEach((id, i) => {
     players[id] = {
       cash: STARTING_CASH,
       position: GO_INDEX,
       inJail: false,
       jailTurns: 0,
       bankrupt: false,
+      piece: PIECES[i % PIECES.length],
     };
-  }
+  });
 
   return {
     phase: 'rolling',
@@ -344,6 +347,22 @@ function createMonopolyState(playerIds) {
     chanceDiscard: [],
     chestDiscard: [],
   };
+}
+
+function monopolySetPiece(state, playerId, piece) {
+  if (state.winner) return { ok: false, reason: 'Gra zakończona' };
+  const p = state.players[playerId];
+  if (!p || p.bankrupt) return { ok: false, reason: 'Nie możesz zmienić pionka' };
+  if (!PIECES.includes(piece)) return { ok: false, reason: 'Nieznany pionek' };
+  if (p.piece === piece) return { ok: true };
+
+  const taken = Object.entries(state.players).some(
+    ([id, other]) => id !== playerId && !other.bankrupt && other.piece === piece
+  );
+  if (taken) return { ok: false, reason: 'Ten pionek jest już zajęty' };
+
+  p.piece = piece;
+  return { ok: true };
 }
 
 function assertTurn(state, playerId, phases) {
@@ -503,6 +522,7 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     inJail: state.players[id].inJail,
     jailTurns: state.players[id].jailTurns,
     bankrupt: state.players[id].bankrupt,
+    piece: state.players[id].piece || 'pawn',
   }));
 
   const myPropertyIndexes = Object.entries(state.owners)
@@ -573,5 +593,7 @@ module.exports = {
   monopolyBuy,
   monopolySkipBuy,
   monopolyEndTurn,
+  monopolySetPiece,
   getPublicMonopolyState,
+  PIECES,
 };
