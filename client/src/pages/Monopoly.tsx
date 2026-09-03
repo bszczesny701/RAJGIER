@@ -60,16 +60,15 @@ function spaceToGrid(index: number): { row: number; col: number } {
 
 function shortLabel(space: MonopolySpace): string {
   if (space.type === 'go') return 'START';
-  if (space.type === 'jail') return 'Więz.';
-  if (space.type === 'parking') return 'Park';
-  if (space.type === 'gotojail') return '→Więz';
-  if (space.type === 'chance') return '?';
-  if (space.type === 'chest') return 'K$';
-  if (space.type === 'tax') return `−${space.tax}`;
-  if (space.type === 'rail') return 'St.';
-  if (space.type === 'utility') return 'Med.';
-  const m = space.name.match(/([A-H]\d)/);
-  return m ? m[1] : space.name.slice(0, 4);
+  if (space.type === 'jail') return 'Więzienie';
+  if (space.type === 'parking') return 'Parking';
+  if (space.type === 'gotojail') return 'Do więzienia';
+  if (space.type === 'chance') return 'Szansa';
+  if (space.type === 'chest') return 'Kasa';
+  if (space.type === 'tax') return `Podatek ${space.tax}`;
+  if (space.type === 'rail') return space.name;
+  if (space.type === 'utility') return space.name;
+  return space.name.replace(/^Inwestycja\s+/i, '');
 }
 
 export default function Monopoly() {
@@ -178,43 +177,45 @@ export default function Monopoly() {
           </div>
 
           <div className="monopoly-layout">
-            <div className="monopoly-board" role="grid" aria-label="Plansza Monopoly">
-              <div className="monopoly-center" aria-hidden>MONOPOLY</div>
-              {state.spaces.map((space) => {
-                const { row, col } = spaceToGrid(space.index);
-                const tokensHere = state.tokens.filter((t) => !t.bankrupt && t.position === space.index);
-                const isFocus = focusSpace?.index === space.index;
-                const isCorner = [0, 10, 20, 30].includes(space.index);
+            <div className="monopoly-board-wrap">
+              <div className="monopoly-board" role="grid" aria-label="Plansza Monopoly">
+                <div className="monopoly-center" aria-hidden>MONOPOLY</div>
+                {state.spaces.map((space) => {
+                  const { row, col } = spaceToGrid(space.index);
+                  const tokensHere = state.tokens.filter((t) => !t.bankrupt && t.position === space.index);
+                  const isFocus = focusSpace?.index === space.index;
+                  const isCorner = [0, 10, 20, 30].includes(space.index);
 
-                return (
-                  <div
-                    key={space.index}
-                    className={`monopoly-cell group-${space.group}${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}`}
-                    style={{ gridRow: row + 1, gridColumn: col + 1 }}
-                    title={space.name}
-                  >
-                    <span className={`monopoly-cell-bar group-${space.group}`} />
-                    <span className="monopoly-cell-label">{shortLabel(space)}</span>
-                    {space.ownerId && (
-                      <span
-                        className="monopoly-owner-dot"
-                        style={{ background: colorById[space.ownerId] }}
-                        title="Właściciel"
-                      />
-                    )}
-                    <div className="monopoly-tokens">
-                      {tokensHere.map((t) => (
+                  return (
+                    <div
+                      key={space.index}
+                      className={`monopoly-cell group-${space.group}${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}`}
+                      style={{ gridRow: row + 1, gridColumn: col + 1 }}
+                      title={space.name}
+                    >
+                      <span className={`monopoly-cell-bar group-${space.group}`} />
+                      <span className="monopoly-cell-label">{shortLabel(space)}</span>
+                      {space.ownerId && (
                         <span
-                          key={t.id}
-                          className={`monopoly-token${t.id === playerId ? ' is-me' : ''}`}
-                          style={{ background: colorById[t.id] }}
-                          title={t.name}
+                          className="monopoly-owner-dot"
+                          style={{ background: colorById[space.ownerId] }}
+                          title="Właściciel"
                         />
-                      ))}
+                      )}
+                      <div className="monopoly-tokens">
+                        {tokensHere.map((t) => (
+                          <span
+                            key={t.id}
+                            className={`monopoly-token${t.id === playerId ? ' is-me' : ''}`}
+                            style={{ background: colorById[t.id] }}
+                            title={t.name}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
 
             <div className="monopoly-side">
