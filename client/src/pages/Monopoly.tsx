@@ -120,6 +120,12 @@ export default function Monopoly() {
   const [displayDie, setDisplayDie] = useState<number | null>(null);
   const [bonusFlash, setBonusFlash] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>(() => defaultBoardMode());
+  const [tradeOpen, setTradeOpen] = useState(false);
+  const [tradePartnerId, setTradePartnerId] = useState<string | null>(null);
+  const [tradeOfferCash, setTradeOfferCash] = useState('0');
+  const [tradeAskCash, setTradeAskCash] = useState('0');
+  const [tradeOfferSpaces, setTradeOfferSpaces] = useState<number[]>([]);
+  const [tradeAskSpaces, setTradeAskSpaces] = useState<number[]>([]);
   const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const rollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHost = room?.hostId === playerId;
@@ -189,6 +195,20 @@ export default function Monopoly() {
     }
   }, [state?.pendingNotice?.id, noticeDismissed]);
 
+  useEffect(() => {
+    if (!state?.pendingNotice?.id || noticeDismissed === state.pendingNotice.id) return;
+    const t = setTimeout(() => setNoticeDismissed(state.pendingNotice!.id), 2500);
+    return () => clearTimeout(t);
+  }, [state?.pendingNotice?.id, noticeDismissed]);
+
+  useEffect(() => {
+    const card = state?.pendingCard;
+    if (!card?.id || cardDismissed === card.id) return;
+    if ((card.text || '').length > 90) return;
+    const t = setTimeout(() => setCardDismissed(card.id), 3500);
+    return () => clearTimeout(t);
+  }, [state?.pendingCard?.id, state?.pendingCard?.text, cardDismissed]);
+
   const emit = (event: string, extra?: Record<string, unknown>) => {
     if (!socket) return;
     socket.emit(event, { sessionId, roomCode, ...extra });
@@ -198,6 +218,40 @@ export default function Monopoly() {
   const emitSellHouse = (spaceIndex: number) => emit('monopolySellHouse', { spaceIndex });
   const emitMortgage = (spaceIndex: number) => emit('monopolyMortgage', { spaceIndex });
   const emitUnmortgage = (spaceIndex: number) => emit('monopolyUnmortgage', { spaceIndex });
+
+  const openTrade = () => {
+    const partner = state?.tokens.find((t) => t.id !== playerId && !t.bankrupt);
+    setTradePartnerId(partner?.id || null);
+    setTradeOfferCash('0');
+    setTradeAskCash('0');
+    setTradeOfferSpaces([]);
+    setTradeAskSpaces([]);
+    setTradeOpen(true);
+  };
+
+  const toggleTradeSpace = (list: number[], setList: (v: number[]) => void, idx: number) => {
+    setList(list.includes(idx) ? list.filter((i) => i !== idx) : [...list, idx]);
+  };
+
+  const submitTrade = () => {
+    if (!tradePartnerId) return;
+    emit('monopolyTradePropose', {
+      toId: tradePartnerId,
+      offerCash: Number(tradeOfferCash) || 0,
+      askCash: Number(tradeAskCash) || 0,
+      offerSpaces: tradeOfferSpaces,
+      askSpaces: tradeAskSpaces,
+    });
+    setTradeOpen(false);
+  };
+
+  const spaceTradeable = (s: MonopolySpace) => {
+    if (s.type === 'investment') {
+      const group = state?.spaces.filter((x) => x.group === s.group && x.type === 'investment') || [];
+      if (group.some((x) => (x.houses || 0) > 0)) return false;
+    }
+    return true;
+  };
 
   const handleRoll = () => {
     if (diceRolling) return;
@@ -227,6 +281,7 @@ export default function Monopoly() {
   const focusSpace = state?.spaces[focusIndex] ?? null;
   const showCard = state?.pendingCard && state.pendingCard.id !== cardDismissed;
   const showNotice = state?.pendingNotice && state.pendingNotice.id !== noticeDismissed;
+  const cardNeedsSheet = !!(showCard && state?.pendingCard && state.pendingCard.text.length > 90);
 
   const myProperties = useMemo(() => {
     if (!state) return [];
@@ -309,6 +364,14 @@ export default function Monopoly() {
                 aria-label={boardMode === '2d' ? 'Włącz planszę 3D' : 'Włącz planszę 2D'}
               >
                 {boardMode === '2d' ? '3D' : '2D'}
+              </button>
+              <button
+                type="button"
+                className="monopoly-inv-btn"
+                disabled={!state.canProposeTrade}
+                onClick={openTrade}
+              >
+                Handel
               </button>
               <button
                 type="button"
@@ -560,6 +623,151 @@ export default function Monopoly() {
         </div>
       )}
 
+      {tradeOpen && state && (
+        <div className="modal-overlay" onClick={() => setTradeOpen(false)}>
+          <div className="monopoly-inventory monopoly-trade-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="monopoly-inventory-head">
+              <h2>Handel</h2>
+              <button type="button" className="monopoly-deed-close" onClick={() => setTradeOpen(false)}>×</button>
+            </div>
+
+            <label className="monopoly-trade-label">
+              Gracz
+              <select
+                value={tradePartnerId || ''}
+                onChange={(e) => {
+                  setTradePartnerId(e.target.value || null);
+                  setTradeAskSpaces([]);
+                }}
+              >
+                {state.tokens
+                  .filter((t) => t.id !== playerId && !t.bankrupt)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.cash})</option>
+                  ))}
+              </select>
+            </label>
+
+            <div className="monopoly-trade-cash-row">
+              <label>
+                Dajesz
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={tradeOfferCash}
+                  onChange={(e) => setTradeOfferCash(e.target.value)}
+                />
+              </label>
+              <label>
+                Chcesz
+                <input
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  value={tradeAskCash}
+                  onChange={(e) => setTradeAskCash(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <p className="monopoly-trade-section">Twoje pola</p>
+            <ul className="monopoly-trade-space-list">
+              {myProperties.map((s) => {
+                const live = state.spaces[s.index] || s;
+                const ok = spaceTradeable(live);
+                return (
+                  <li key={live.index}>
+                    <label className={!ok ? 'is-disabled' : undefined}>
+                      <input
+                        type="checkbox"
+                        disabled={!ok}
+                        checked={tradeOfferSpaces.includes(live.index)}
+                        onChange={() => toggleTradeSpace(tradeOfferSpaces, setTradeOfferSpaces, live.index)}
+                      />
+                      <span
+                        className="monopoly-inventory-swatch"
+                        style={{ background: GROUP_COLORS[live.group] || '#888' }}
+                      />
+                      {live.name}
+                      {!ok && <em> (domy)</em>}
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+
+            <p className="monopoly-trade-section">Pola gracza</p>
+            <ul className="monopoly-trade-space-list">
+              {state.spaces
+                .filter((s) => s.ownerId === tradePartnerId)
+                .map((live) => {
+                  const ok = spaceTradeable(live);
+                  return (
+                    <li key={live.index}>
+                      <label className={!ok ? 'is-disabled' : undefined}>
+                        <input
+                          type="checkbox"
+                          disabled={!ok}
+                          checked={tradeAskSpaces.includes(live.index)}
+                          onChange={() => toggleTradeSpace(tradeAskSpaces, setTradeAskSpaces, live.index)}
+                        />
+                        <span
+                          className="monopoly-inventory-swatch"
+                          style={{ background: GROUP_COLORS[live.group] || '#888' }}
+                        />
+                        {live.name}
+                        {!ok && <em> (domy)</em>}
+                      </label>
+                    </li>
+                  );
+                })}
+            </ul>
+
+            <button type="button" className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={submitTrade}>
+              Wyślij ofertę
+            </button>
+          </div>
+        </div>
+      )}
+
+      {state?.pendingTrade && state.canCancelTrade && (
+        <div className="monopoly-trade-banner">
+          <p>Czekasz na odpowiedź: {state.pendingTrade.toName}</p>
+          <button type="button" className="btn btn-secondary" onClick={() => emit('monopolyTradeCancel')}>
+            Anuluj
+          </button>
+        </div>
+      )}
+
+      {state?.pendingTrade && state.canRespondTrade && (
+        <div className="monopoly-sheet-overlay">
+          <div className="monopoly-sheet monopoly-trade-sheet" onClick={(e) => e.stopPropagation()}>
+            <h2>Oferta od {state.pendingTrade.fromName}</h2>
+            <p>
+              Daje: {state.pendingTrade.offerCash}
+              {state.pendingTrade.offerSpaceNames.length > 0
+                ? ` + ${state.pendingTrade.offerSpaceNames.join(', ')}`
+                : ''}
+            </p>
+            <p>
+              Chce: {state.pendingTrade.askCash}
+              {state.pendingTrade.askSpaceNames.length > 0
+                ? ` + ${state.pendingTrade.askSpaceNames.join(', ')}`
+                : ''}
+            </p>
+            <div className="monopoly-build-actions">
+              <button type="button" className="btn btn-primary" onClick={() => emit('monopolyTradeAccept')}>
+                Przyjmij
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={() => emit('monopolyTradeReject')}>
+                Odrzuć
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {deedSpace && state && (
         <PropertyDeed
           space={state.spaces[deedSpace.index] || deedSpace}
@@ -576,35 +784,37 @@ export default function Monopoly() {
         />
       )}
 
-      {showCard && state?.pendingCard && (
-        <div className="modal-overlay" onClick={() => setCardDismissed(state.pendingCard!.id)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="emoji-big">📜</div>
+      {showNotice && state?.pendingNotice && (
+        <div
+          className={`monopoly-toast monopoly-toast-notice kind-${state.pendingNotice.kind || 'rent'}`}
+          role="status"
+          onClick={() => setNoticeDismissed(state.pendingNotice!.id)}
+        >
+          <strong>{state.pendingNotice.title}</strong>
+          <span>{state.pendingNotice.text}</span>
+        </div>
+      )}
+
+      {showCard && state?.pendingCard && !cardNeedsSheet && (
+        <div
+          className="monopoly-toast monopoly-toast-card"
+          role="status"
+          onClick={() => setCardDismissed(state.pendingCard!.id)}
+        >
+          <strong>Los</strong>
+          <span>{state.pendingCard.text}</span>
+        </div>
+      )}
+
+      {showCard && state?.pendingCard && cardNeedsSheet && (
+        <div className="monopoly-sheet-overlay" onClick={() => setCardDismissed(state.pendingCard!.id)}>
+          <div className="monopoly-sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Los</h2>
             <p>{state.pendingCard.text}</p>
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => setCardDismissed(state.pendingCard!.id)}
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showNotice && state?.pendingNotice && !showCard && !deedSpace && (
-        <div className="modal-overlay" onClick={() => setNoticeDismissed(state.pendingNotice!.id)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="emoji-big">
-              {state.pendingNotice.kind === 'jail' ? '🔒' : '💰'}
-            </div>
-            <h2>{state.pendingNotice.title}</h2>
-            <p>{state.pendingNotice.text}</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setNoticeDismissed(state.pendingNotice!.id)}
             >
               OK
             </button>

@@ -46,11 +46,21 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   if (space.type === 'gotojail') return 'Więz!';
   if (space.type === 'chance') return '?';
   if (space.type === 'chest') return 'Kasa';
-  if (space.type === 'tax') return 'Pod.';
-  if (space.type === 'rail') return space.name.replace('Stacja ', 'S');
-  if (space.type === 'utility') return space.name.replace('Media ', 'M');
-  const m = space.name.match(/([A-H]\d)/i);
-  return m ? m[1].toUpperCase() : space.name.slice(0, 3);
+  if (space.type === 'tax') return space.name.includes('luksus') ? 'Lux' : 'Pod.';
+  if (space.type === 'rail') {
+    if (space.name.includes('Główny')) return 'Gł.';
+    if (space.name.includes('Wschod')) return 'Wsch.';
+    if (space.name.includes('Zachod')) return 'Zach.';
+    if (space.name.includes('Central')) return 'Cent.';
+    return 'Dw.';
+  }
+  if (space.type === 'utility') {
+    if (space.name.includes('Elektro')) return 'El.';
+    if (space.name.includes('Wodo')) return 'Wod.';
+    return 'Med.';
+  }
+  const first = space.name.split(/\s+/)[0] || space.name;
+  return first.length <= 6 ? first : `${first.slice(0, 5)}.`;
 }
 
 export const RENT_LABELS = ['Bez ulepszeń', '1 dom', '2 domy', '3 domy', '4 domy', 'Hotel'];

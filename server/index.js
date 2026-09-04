@@ -57,6 +57,10 @@ const {
   monopolySellHouse,
   monopolyMortgage,
   monopolyUnmortgage,
+  monopolyTradePropose,
+  monopolyTradeAccept,
+  monopolyTradeReject,
+  monopolyTradeCancel,
   monopolySetPiece,
   getPublicMonopolyState,
 } = require('./games/monopoly');
@@ -986,6 +990,78 @@ io.on('connection', (socket) => {
 
     emitMonopolyUpdate(room);
     finishMonopolyIfWon(room);
+  });
+
+  socket.on('monopolyTradePropose', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyTradePropose(room.gameState, player.id, data);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+  });
+
+  socket.on('monopolyTradeAccept', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyTradeAccept(room.gameState, player.id);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+  });
+
+  socket.on('monopolyTradeReject', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyTradeReject(room.gameState, player.id);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+  });
+
+  socket.on('monopolyTradeCancel', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyTradeCancel(room.gameState, player.id);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
   });
 
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {

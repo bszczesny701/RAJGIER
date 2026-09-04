@@ -469,6 +469,7 @@ function advanceTurn(state) {
   state.awaitingBuy = null;
   state.pendingCard = null;
   state.pendingNotice = null;
+  state.pendingTrade = null;
 }
 
 function createMonopolyState(playerIds) {
@@ -497,6 +498,7 @@ function createMonopolyState(playerIds) {
     lastDice: null,
     pendingCard: null,
     pendingNotice: null,
+    pendingTrade: null,
     awaitingBuy: null,
     log: ['Zaczynamy partię Monopoly.'],
     winner: null,
@@ -762,6 +764,142 @@ function monopolyUnmortgage(state, playerId, spaceIndex) {
   return { ok: true };
 }
 
+function normalizeSpaceList(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const raw of list) {
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 0 || n >= BOARD.length) continue;
+    if (!out.includes(n)) out.push(n);
+  }
+  return out;
+}
+
+function tradeSpaceOk(state, ownerId, spaceIndex) {
+  const space = getSpace(spaceIndex);
+  if (!isBuyable(space)) return { ok: false, reason: 'Nieprawidłowe pole w handlu' };
+  if (state.owners[spaceIndex] !== ownerId) {
+    return { ok: false, reason: 'Pole nie należy do oferującego / drugiej strony' };
+  }
+  if (space.type === 'investment' && groupHasHouses(state, space.group)) {
+    return { ok: false, reason: 'Najpierw sprzedaj domy w kolorze pola' };
+  }
+  return { ok: true };
+}
+
+function monopolyTradePropose(state, fromId, payload = {}) {
+  const gate = assertTurn(state, fromId, BUILD_PHASES);
+  if (!gate.ok) return gate;
+  if (state.pendingTrade) return { ok: false, reason: 'Trwa już inna oferta handlu' };
+
+  const toId = payload.toId;
+  if (!toId || toId === fromId || !state.players[toId] || state.players[toId].bankrupt) {
+    return { ok: false, reason: 'Wybierz żywego gracza' };
+  }
+
+  const offerCash = Math.max(0, Math.floor(Number(payload.offerCash) || 0));
+  const askCash = Math.max(0, Math.floor(Number(payload.askCash) || 0));
+  const offerSpaces = normalizeSpaceList(payload.offerSpaces);
+  const askSpaces = normalizeSpaceList(payload.askSpaces);
+
+  if (offerCash === 0 && askCash === 0 && offerSpaces.length === 0 && askSpaces.length === 0) {
+    return { ok: false, reason: 'Oferta jest pusta' };
+  }
+  if ((state.players[fromId].cash || 0) < offerCash) {
+    return { ok: false, reason: 'Za mało gotówki w ofercie' };
+  }
+  if ((state.players[toId].cash || 0) < askCash) {
+    return { ok: false, reason: 'Druga strona nie ma tyle gotówki' };
+  }
+
+  for (const idx of offerSpaces) {
+    const check = tradeSpaceOk(state, fromId, idx);
+    if (!check.ok) return check;
+  }
+  for (const idx of askSpaces) {
+    const check = tradeSpaceOk(state, toId, idx);
+    if (!check.ok) return check;
+  }
+
+  state.pendingTrade = {
+    id: `trade-${fromId}-${toId}-${Date.now()}`,
+    fromId,
+    toId,
+    offerCash,
+    askCash,
+    offerSpaces,
+    askSpaces,
+  };
+  pushLog(state, 'Wysłano ofertę handlu.');
+  return { ok: true };
+}
+
+function monopolyTradeAccept(state, playerId) {
+  const trade = state.pendingTrade;
+  if (!trade) return { ok: false, reason: 'Brak oferty' };
+  if (trade.toId !== playerId) return { ok: false, reason: 'To nie Twoja oferta' };
+  if (state.winner) return { ok: false, reason: 'Gra zakończona' };
+
+  const from = state.players[trade.fromId];
+  const to = state.players[trade.toId];
+  if (!from || !to || from.bankrupt || to.bankrupt) {
+    state.pendingTrade = null;
+    return { ok: false, reason: 'Handel niemożliwy' };
+  }
+  if (from.cash < trade.offerCash || to.cash < trade.askCash) {
+    return { ok: false, reason: 'Brak gotówki do wymiany' };
+  }
+
+  for (const idx of trade.offerSpaces) {
+    if (state.owners[idx] !== trade.fromId) {
+      return { ok: false, reason: 'Oferta jest nieaktualna' };
+    }
+    const check = tradeSpaceOk(state, trade.fromId, idx);
+    if (!check.ok) return check;
+  }
+  for (const idx of trade.askSpaces) {
+    if (state.owners[idx] !== trade.toId) {
+      return { ok: false, reason: 'Oferta jest nieaktualna' };
+    }
+    const check = tradeSpaceOk(state, trade.toId, idx);
+    if (!check.ok) return check;
+  }
+
+  from.cash -= trade.offerCash;
+  to.cash += trade.offerCash;
+  to.cash -= trade.askCash;
+  from.cash += trade.askCash;
+
+  for (const idx of trade.offerSpaces) {
+    state.owners[idx] = trade.toId;
+  }
+  for (const idx of trade.askSpaces) {
+    state.owners[idx] = trade.fromId;
+  }
+
+  state.pendingTrade = null;
+  pushLog(state, 'Handel zakończony.');
+  return { ok: true };
+}
+
+function monopolyTradeReject(state, playerId) {
+  const trade = state.pendingTrade;
+  if (!trade) return { ok: false, reason: 'Brak oferty' };
+  if (trade.toId !== playerId) return { ok: false, reason: 'To nie Twoja oferta' };
+  state.pendingTrade = null;
+  pushLog(state, 'Oferta handlu odrzucona.');
+  return { ok: true };
+}
+
+function monopolyTradeCancel(state, playerId) {
+  const trade = state.pendingTrade;
+  if (!trade) return { ok: false, reason: 'Brak oferty' };
+  if (trade.fromId !== playerId) return { ok: false, reason: 'Nie możesz anulować' };
+  state.pendingTrade = null;
+  pushLog(state, 'Oferta handlu anulowana.');
+  return { ok: true };
+}
+
 function getPublicMonopolyState(state, viewerId, playerNames = {}) {
   const p = state.players[viewerId];
   const buySpace = state.awaitingBuy != null ? getSpace(state.awaitingBuy) : null;
@@ -878,6 +1016,24 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
       : null,
     jailFee: JAIL_FEE,
     goSalary: GO_SALARY,
+    pendingTrade: state.pendingTrade
+      ? {
+          id: state.pendingTrade.id,
+          fromId: state.pendingTrade.fromId,
+          toId: state.pendingTrade.toId,
+          fromName: playerNames[state.pendingTrade.fromId] || 'Gracz',
+          toName: playerNames[state.pendingTrade.toId] || 'Gracz',
+          offerCash: state.pendingTrade.offerCash,
+          askCash: state.pendingTrade.askCash,
+          offerSpaces: [...state.pendingTrade.offerSpaces],
+          askSpaces: [...state.pendingTrade.askSpaces],
+          offerSpaceNames: state.pendingTrade.offerSpaces.map((i) => getSpace(i)?.name || `#${i}`),
+          askSpaceNames: state.pendingTrade.askSpaces.map((i) => getSpace(i)?.name || `#${i}`),
+        }
+      : null,
+    canProposeTrade: isMyTurn && BUILD_PHASES.includes(state.phase) && !state.pendingTrade,
+    canRespondTrade: !!state.pendingTrade && state.pendingTrade.toId === viewerId,
+    canCancelTrade: !!state.pendingTrade && state.pendingTrade.fromId === viewerId,
   };
 }
 
@@ -892,6 +1048,10 @@ module.exports = {
   monopolySellHouse,
   monopolyMortgage,
   monopolyUnmortgage,
+  monopolyTradePropose,
+  monopolyTradeAccept,
+  monopolyTradeReject,
+  monopolyTradeCancel,
   monopolySetPiece,
   getPublicMonopolyState,
   PIECES,

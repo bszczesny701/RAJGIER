@@ -30,6 +30,20 @@ export interface MonopolyToken {
   piece: string;
 }
 
+export interface MonopolyPendingTrade {
+  id: string;
+  fromId: string;
+  toId: string;
+  fromName: string;
+  toName: string;
+  offerCash: number;
+  askCash: number;
+  offerSpaces: number[];
+  askSpaces: number[];
+  offerSpaceNames: string[];
+  askSpaceNames: string[];
+}
+
 export interface MonopolyState {
   phase: string;
   currentPlayerId: string | null;
@@ -38,6 +52,7 @@ export interface MonopolyState {
   lastDice: { d1: number; total: number; bonus: boolean } | null;
   pendingCard: { id: string; text: string } | null;
   pendingNotice: { id: string; kind: string; title: string; text: string } | null;
+  pendingTrade: MonopolyPendingTrade | null;
   log: string[];
   spaces: MonopolySpace[];
   tokens: MonopolyToken[];
@@ -53,6 +68,9 @@ export interface MonopolyState {
   canBuy: boolean;
   canSkipBuy: boolean;
   canEndTurn: boolean;
+  canProposeTrade?: boolean;
+  canRespondTrade?: boolean;
+  canCancelTrade?: boolean;
   buyOffer: { index: number; name: string; price: number } | null;
   jailFee: number;
   myName: string;
