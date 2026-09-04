@@ -50,7 +50,15 @@ export interface MonopolyState {
   currentTurnName: string;
   winner: string | null;
   lastDice: { d1: number; total: number; bonus: boolean } | null;
-  pendingCard: { id: string; text: string } | null;
+  pendingCard: { id: string; text: string; kind?: string } | null;
+  pendingCardPick: {
+    id: string;
+    playerId: string;
+    playerName: string;
+    kind: string;
+    count: number;
+    isMine: boolean;
+  } | null;
   pendingNotice: { id: string; kind: string; title: string; text: string } | null;
   pendingTrade: MonopolyPendingTrade | null;
   log: string[];
@@ -68,6 +76,7 @@ export interface MonopolyState {
   canBuy: boolean;
   canSkipBuy: boolean;
   canEndTurn: boolean;
+  canPickCard?: boolean;
   canProposeTrade?: boolean;
   canRespondTrade?: boolean;
   canCancelTrade?: boolean;

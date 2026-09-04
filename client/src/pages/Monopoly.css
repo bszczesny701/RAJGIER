@@ -398,11 +398,163 @@
   grid-column: 2 / 11;
   display: grid;
   place-items: center;
-  font-size: clamp(1rem, 2.8vw, 2rem);
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  color: rgba(239, 68, 68, 0.45);
   pointer-events: none;
+  z-index: 1;
+}
+
+.monopoly-center-decks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 3vw, 22px);
+  transform: rotate(-18deg);
+}
+
+.monopoly-deck {
+  width: clamp(42px, 12vw, 72px);
+  height: clamp(58px, 16vw, 96px);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  font-size: clamp(0.7rem, 2.4vw, 1rem);
+  box-shadow:
+    2px 3px 0 rgba(0, 0, 0, 0.25),
+    4px 6px 0 rgba(0, 0, 0, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+}
+
+.monopoly-deck-los {
+  background: linear-gradient(145deg, #2563eb, #1e3a8a);
+  color: #fff;
+}
+
+.monopoly-deck-chest {
+  background: linear-gradient(145deg, #fbbf24, #d97706);
+  color: #111;
+}
+
+.monopoly-cell.is-los {
+  background: #1d4ed8;
+  color: #fff;
+  justify-content: center;
+  align-items: center;
+}
+
+.monopoly-cell.is-los .monopoly-cell-label {
+  color: #fff;
+  font-size: clamp(0.7rem, 2.2vw, 1rem);
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-top: 0;
+}
+
+.monopoly-cell.is-chest {
+  background: #f59e0b;
+}
+
+.monopoly-cell.is-chest .monopoly-cell-label {
+  color: #111;
+  font-weight: 800;
+}
+
+.monopoly-los-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 10px calc(12px + var(--safe-bottom));
+}
+
+.monopoly-los-pick {
+  width: min(100%, 440px);
+  background: var(--m-bg-elev);
+  border: 1px solid var(--m-line);
+  border-radius: 18px 18px 12px 12px;
+  padding: 16px 14px 18px;
+  text-align: center;
+}
+
+.monopoly-los-pick h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  color: #60a5fa;
+}
+
+.monopoly-los-hint {
+  margin: 0 0 16px;
+  color: var(--m-muted);
+  font-size: 0.85rem;
+}
+
+.monopoly-los-cards {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  perspective: 800px;
+}
+
+.monopoly-los-card {
+  position: relative;
+  width: clamp(72px, 22vw, 100px);
+  height: clamp(100px, 30vw, 140px);
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease;
+}
+
+.monopoly-los-card:not(.is-locked):active {
+  transform: translateY(-4px) scale(1.03);
+}
+
+.monopoly-los-card.is-locked {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.monopoly-los-card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.monopoly-los-card-back {
+  background: linear-gradient(160deg, #3b82f6, #1e3a8a);
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-size: 1.1rem;
+}
+
+.monopoly-los-card-front {
+  background: #fffcf5;
+  color: #1d4ed8;
+  transform: rotateY(180deg);
+  font-size: 1.6rem;
+  border: 2px solid #93c5fd;
+}
+
+.monopoly-los-card.is-flipping {
+  animation: monoLosFlip 0.5s ease forwards;
+}
+
+@keyframes monoLosFlip {
+  0% { transform: rotateY(0deg) scale(1); }
+  40% { transform: rotateY(90deg) scale(1.08); }
+  100% { transform: rotateY(180deg) scale(1.05); }
 }
 
 .monopoly-cell {

@@ -345,9 +345,50 @@ function drawCard(state, kind) {
   return getCard(id);
 }
 
+function refillDeck(state, kind) {
+  const deckKey = kind === 'chance' ? 'chanceDeck' : 'chestDeck';
+  const discardKey = kind === 'chance' ? 'chanceDiscard' : 'chestDiscard';
+  if (state[deckKey].length === 0) {
+    state[deckKey] = shuffle(state[discardKey]);
+    state[discardKey] = [];
+  }
+}
+
+/** Ściąga do n kart z talii (bez discard) — do wyboru 1 z 3. */
+function takeCardsFromDeck(state, kind, n) {
+  const deckKey = kind === 'chance' ? 'chanceDeck' : 'chestDeck';
+  const ids = [];
+  for (let i = 0; i < n; i++) {
+    refillDeck(state, kind);
+    if (state[deckKey].length === 0) break;
+    ids.push(state[deckKey].pop());
+  }
+  return ids;
+}
+
+function offerCardPick(state, playerId, kind) {
+  const options = takeCardsFromDeck(state, kind, 3);
+  if (options.length === 0) return;
+
+  if (options.length === 1) {
+    const discardKey = kind === 'chance' ? 'chanceDiscard' : 'chestDiscard';
+    state[discardKey].push(options[0]);
+    applyCard(state, playerId, getCard(options[0]));
+    return;
+  }
+
+  state.pendingCardPick = {
+    id: `pick-${kind}-${playerId}-${Date.now()}`,
+    playerId,
+    kind,
+    options,
+  };
+  pushLog(state, kind === 'chance' ? 'Los — wybierz 1 z 3 kart.' : 'Kasa — wybierz kartę.');
+}
+
 function applyCard(state, playerId, card, depth = 0) {
   if (!card) return;
-  state.pendingCard = { id: card.id, text: card.text };
+  state.pendingCard = { id: card.id, text: card.text, kind: card.id.startsWith('ch') ? 'chance' : 'chest' };
   pushLog(state, card.text);
 
   const effect = card.effect || {};
@@ -391,8 +432,13 @@ function resolveLanding(state, playerId, opts = {}) {
     return;
   }
 
-  if ((space.type === 'chance' || space.type === 'chest') && !opts.skipCardDraw) {
-    const card = drawCard(state, space.type === 'chance' ? 'chance' : 'chest');
+  if (space.type === 'chance' && !opts.skipCardDraw) {
+    offerCardPick(state, playerId, 'chance');
+    return;
+  }
+
+  if (space.type === 'chest' && !opts.skipCardDraw) {
+    const card = drawCard(state, 'chest');
     applyCard(state, playerId, card, depth);
     return;
   }
@@ -430,6 +476,10 @@ function afterLanding(state, playerId) {
   const p = state.players[playerId];
   if (!p || p.bankrupt) return;
 
+  if (state.pendingCardPick) {
+    state.phase = 'awaitCardPick';
+    return;
+  }
   if (state.awaitingBuy != null) {
     state.phase = 'awaitBuy';
     return;
@@ -470,6 +520,7 @@ function advanceTurn(state) {
   state.pendingCard = null;
   state.pendingNotice = null;
   state.pendingTrade = null;
+  state.pendingCardPick = null;
 }
 
 function createMonopolyState(playerIds) {
@@ -499,6 +550,7 @@ function createMonopolyState(playerIds) {
     pendingCard: null,
     pendingNotice: null,
     pendingTrade: null,
+    pendingCardPick: null,
     awaitingBuy: null,
     log: ['Zaczynamy partię Monopoly.'],
     winner: null,
@@ -545,6 +597,7 @@ function monopolyRoll(state, playerId) {
   state.lastDice = { d1, total, bonus };
   state.pendingCard = null;
   state.pendingNotice = null;
+  state.pendingCardPick = null;
   pushLog(state, `Kostka: ${d1}${bonus ? ' (szóstka — dodatkowy rzut)' : ''}`);
 
   if (p.inJail) {
@@ -761,6 +814,32 @@ function monopolyUnmortgage(state, playerId, spaceIndex) {
   state.players[playerId].cash -= check.cost;
   setMortgaged(state, idx, false);
   pushLog(state, `Wykup zastawu: ${check.space.name} (−${check.cost})`);
+  return { ok: true };
+}
+
+function monopolyPickCard(state, playerId, slotIndex) {
+  const pick = state.pendingCardPick;
+  if (!pick) return { ok: false, reason: 'Brak kart do wyboru' };
+  if (pick.playerId !== playerId) return { ok: false, reason: 'To nie Twój los' };
+  if (state.phase !== 'awaitCardPick') return { ok: false, reason: 'Teraz nie wybierasz karty' };
+
+  const slot = Number(slotIndex);
+  if (!Number.isInteger(slot) || slot < 0 || slot >= pick.options.length) {
+    return { ok: false, reason: 'Nieprawidłowa karta' };
+  }
+
+  const chosenId = pick.options[slot];
+  const rest = pick.options.filter((_, i) => i !== slot);
+  const kind = pick.kind;
+  const deckKey = kind === 'chance' ? 'chanceDeck' : 'chestDeck';
+  const discardKey = kind === 'chance' ? 'chanceDiscard' : 'chestDiscard';
+
+  state[discardKey].push(chosenId);
+  state[deckKey] = shuffle([...state[deckKey], ...rest]);
+  state.pendingCardPick = null;
+
+  applyCard(state, playerId, getCard(chosenId));
+  afterLanding(state, playerId);
   return { ok: true };
 }
 
@@ -995,6 +1074,16 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     winner: state.winner,
     lastDice: state.lastDice,
     pendingCard: state.pendingCard,
+    pendingCardPick: state.pendingCardPick
+      ? {
+          id: state.pendingCardPick.id,
+          playerId: state.pendingCardPick.playerId,
+          playerName: playerNames[state.pendingCardPick.playerId] || 'Gracz',
+          kind: state.pendingCardPick.kind,
+          count: state.pendingCardPick.options.length,
+          isMine: state.pendingCardPick.playerId === viewerId,
+        }
+      : null,
     pendingNotice,
     log: state.log,
     spaces,
@@ -1011,6 +1100,7 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
     canBuy: isMyTurn && state.phase === 'awaitBuy' && buySpace && (p?.cash ?? 0) >= (buySpace.price || 0),
     canSkipBuy: isMyTurn && state.phase === 'awaitBuy',
     canEndTurn: isMyTurn && state.phase === 'awaitEnd',
+    canPickCard: !!state.pendingCardPick && state.pendingCardPick.playerId === viewerId && state.phase === 'awaitCardPick',
     buyOffer: buySpace
       ? { index: state.awaitingBuy, name: buySpace.name, price: buySpace.price }
       : null,
@@ -1048,6 +1138,7 @@ module.exports = {
   monopolySellHouse,
   monopolyMortgage,
   monopolyUnmortgage,
+  monopolyPickCard,
   monopolyTradePropose,
   monopolyTradeAccept,
   monopolyTradeReject,

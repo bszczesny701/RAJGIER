@@ -23,10 +23,12 @@ function SpaceMesh({
   const corner = isCorner(space.index);
   const baseH = corner ? 0.22 : 0.14;
   const strip = GROUP_COLORS[space.group] || GROUP_COLORS.special;
-  const baseColor = corner ? '#fff8ea' : '#fffcf5';
   const label = shortLabel(space);
   const isJail = space.type === 'jail' || space.type === 'gotojail';
   const houses = space.houses || 0;
+  const isLos = space.type === 'chance';
+  const cellColor = isLos ? '#1d4ed8' : corner ? '#fff8ea' : focused ? '#fff1c2' : '#fffcf5';
+  const labelColor = isLos ? '#ffffff' : '#111111';
 
   return (
     <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
@@ -39,16 +41,18 @@ function SpaceMesh({
         receiveShadow
       >
         <meshStandardMaterial
-          color={focused ? '#fff1c2' : baseColor}
+          color={cellColor}
           roughness={0.65}
           metalness={0}
         />
       </RoundedBox>
 
-      <mesh position={[0, baseH + 0.02, -CELL * 0.32]}>
-        <boxGeometry args={[CELL * 0.82, 0.1, CELL * 0.18]} />
-        <meshStandardMaterial color={strip} roughness={0.4} metalness={0.05} />
-      </mesh>
+      {!isLos && (
+        <mesh position={[0, baseH + 0.02, -CELL * 0.32]}>
+          <boxGeometry args={[CELL * 0.82, 0.1, CELL * 0.18]} />
+          <meshStandardMaterial color={strip} roughness={0.4} metalness={0.05} />
+        </mesh>
+      )}
 
       {ownerColor && (
         <mesh position={[CELL * 0.3, baseH + 0.06, CELL * 0.3]}>
@@ -85,13 +89,13 @@ function SpaceMesh({
       <Text
         position={[0, baseH + 0.08, 0.08]}
         rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={corner ? 0.22 : 0.2}
-        color="#111111"
+        fontSize={isLos ? 0.28 : corner ? 0.22 : 0.2}
+        color={labelColor}
         anchorX="center"
         anchorY="middle"
         maxWidth={CELL * 0.8}
         textAlign="center"
-        outlineWidth={0.008}
+        outlineWidth={isLos ? 0 : 0.008}
         outlineColor="#ffffff"
       >
         {label}
@@ -146,17 +150,36 @@ export default function Board3D({
         <meshStandardMaterial color="#2a2a2e" roughness={0.85} />
       </mesh>
 
-      <Text
-        position={[0, 0.04, 0]}
-        rotation={[-Math.PI / 2, 0, Math.PI / 4]}
-        fontSize={0.55}
-        color="#ef444466"
-        anchorX="center"
-        anchorY="middle"
-        letterSpacing={0.1}
-      >
-        MONOPOLY
-      </Text>
+      <group position={[-0.7, 0.08, 0.2]}>
+        <RoundedBox args={[1.1, 0.12, 1.5]} radius={0.04} position={[0, 0.06, 0]}>
+          <meshStandardMaterial color="#1d4ed8" />
+        </RoundedBox>
+        <Text
+          position={[0, 0.14, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          fontSize={0.28}
+          color="#fff"
+          anchorX="center"
+          anchorY="middle"
+        >
+          LOS
+        </Text>
+      </group>
+      <group position={[0.7, 0.08, -0.2]}>
+        <RoundedBox args={[1.1, 0.12, 1.5]} radius={0.04} position={[0, 0.06, 0]}>
+          <meshStandardMaterial color="#f59e0b" />
+        </RoundedBox>
+        <Text
+          position={[0, 0.14, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          fontSize={0.24}
+          color="#111"
+          anchorX="center"
+          anchorY="middle"
+        >
+          KASA
+        </Text>
+      </group>
 
       {cells.map((space) => (
         <SpaceMesh

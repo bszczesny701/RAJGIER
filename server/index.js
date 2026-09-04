@@ -57,6 +57,7 @@ const {
   monopolySellHouse,
   monopolyMortgage,
   monopolyUnmortgage,
+  monopolyPickCard,
   monopolyTradePropose,
   monopolyTradeAccept,
   monopolyTradeReject,
@@ -983,6 +984,25 @@ io.on('connection', (socket) => {
     currentRoomRef.value = code;
 
     const result = monopolyUnmortgage(room.gameState, player.id, data.spaceIndex);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+    finishMonopolyIfWon(room);
+  });
+
+  socket.on('monopolyPickCard', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyPickCard(room.gameState, player.id, data.slot);
     if (!result.ok) {
       socket.emit('error', { message: result.reason });
       return;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import Board2DFallback from '../components/monopoly3d/Board2DFallback';
 import PropertyDeed from '../components/monopoly3d/PropertyDeed';
+import LosCardPick from '../components/monopoly3d/LosCardPick';
 import type { MonopolySpace, MonopolyState } from '../components/monopoly3d/types';
 import { GROUP_COLORS, TOKEN_COLORS } from '../components/monopoly3d/boardLayout';
 import { PIECE_ICONS, PIECE_IDS, PIECE_LABELS, type PieceId } from '../components/monopoly3d/pieces';
@@ -41,6 +42,10 @@ function TurnActions({
         Czekaj na {state.currentTurnName}…
       </p>
     );
+  }
+
+  if (state.phase === 'awaitCardPick' || state.canPickCard) {
+    return <p className="monopoly-focus-meta">Wybierz kartę Los…</p>;
   }
 
   return (
@@ -880,7 +885,16 @@ export default function Monopoly() {
         </div>
       )}
 
-      {showCard && state?.pendingCard && !cardNeedsSheet && (
+      {state?.pendingCardPick && (
+        <LosCardPick
+          count={state.pendingCardPick.count}
+          isMine={!!state.pendingCardPick.isMine}
+          playerName={state.pendingCardPick.playerName}
+          onPick={(slot) => emit('monopolyPickCard', { slot })}
+        />
+      )}
+
+      {showCard && state?.pendingCard && !cardNeedsSheet && !state.pendingCardPick && (
         <div
           className="monopoly-toast monopoly-toast-card"
           role="status"
@@ -891,7 +905,7 @@ export default function Monopoly() {
         </div>
       )}
 
-      {showCard && state?.pendingCard && cardNeedsSheet && (
+      {showCard && state?.pendingCard && cardNeedsSheet && !state.pendingCardPick && (
         <div className="monopoly-sheet-overlay" onClick={() => setCardDismissed(state.pendingCard!.id)}>
           <div className="monopoly-sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Los</h2>

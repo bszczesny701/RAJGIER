@@ -38,11 +38,22 @@ export default function Board2DFallback({
 
   return (
     <div className="monopoly-board monopoly-board-2d" role="grid" aria-label="Plansza Monopoly">
-      <div className="monopoly-center" aria-hidden>MONOPOLY</div>
+      <div className="monopoly-center" aria-hidden>
+        <div className="monopoly-center-decks">
+          <div className="monopoly-deck monopoly-deck-los">
+            <span>LOS</span>
+          </div>
+          <div className="monopoly-deck monopoly-deck-chest">
+            <span>KASA</span>
+          </div>
+        </div>
+      </div>
       {spaces.map((space) => {
         const { row, col } = spaceToGrid(space.index);
         const isFocus = focusIndex === space.index;
         const isCorner = [0, 10, 20, 30].includes(space.index);
+        const isLos = space.type === 'chance';
+        const isChest = space.type === 'chest';
         const bar = GROUP_COLORS[space.group] || GROUP_COLORS.special;
 
         return (
@@ -50,7 +61,7 @@ export default function Board2DFallback({
             key={space.index}
             role="button"
             tabIndex={0}
-            className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}${space.mortgaged ? ' is-mortgaged' : ''}`}
+            className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}${space.mortgaged ? ' is-mortgaged' : ''}${isLos ? ' is-los' : ''}${isChest ? ' is-chest' : ''}`}
             style={{ gridRow: row + 1, gridColumn: col + 1 }}
             title={space.name}
             onClick={() => onSelectSpace?.(space.index)}
@@ -58,7 +69,7 @@ export default function Board2DFallback({
               if (e.key === 'Enter' || e.key === ' ') onSelectSpace?.(space.index);
             }}
           >
-            <span className="monopoly-cell-bar" style={{ background: bar }} />
+            {!isLos && <span className="monopoly-cell-bar" style={{ background: bar }} />}
             <span className="monopoly-cell-label">{shortLabel(space)}</span>
             {space.ownerId && (
               <span

@@ -44,7 +44,7 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   if (space.type === 'jail') return 'Więz.';
   if (space.type === 'parking') return 'Park';
   if (space.type === 'gotojail') return 'Więz!';
-  if (space.type === 'chance') return '?';
+  if (space.type === 'chance') return 'LOS';
   if (space.type === 'chest') return 'Kasa';
   if (space.type === 'tax') return space.name.includes('luksus') ? 'Lux' : 'Pod.';
   if (space.type === 'rail') {
