@@ -118,6 +118,7 @@ export default function Monopoly() {
   const [tradeAskCash, setTradeAskCash] = useState('0');
   const [tradeOfferSpaces, setTradeOfferSpaces] = useState<number[]>([]);
   const [tradeAskSpaces, setTradeAskSpaces] = useState<number[]>([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const rollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHost = room?.hostId === playerId;
@@ -348,72 +349,47 @@ export default function Monopoly() {
         </div>
       ) : (
         <>
-          <div className="monopoly-hud">
-            <div className="monopoly-hud-chips">
-              <div className="monopoly-chip">
-                <span className="monopoly-chip-label">Tura</span>
-                <span
-                  className="monopoly-chip-value"
-                  style={{ color: colorById[state.currentPlayerId || ''] }}
-                >
-                  {state.currentTurnName}
-                  {state.isMyTurn ? ' · Ty' : ''}
-                </span>
+          <header className="monopoly-hud">
+            <div className="monopoly-hud-main">
+              <div className="monopoly-hud-cash" title="Twoje saldo">
+                <span className="monopoly-hud-cash-label">$</span>
+                <span className="monopoly-hud-cash-value">{state.myCash}</span>
               </div>
-              <div className="monopoly-chip monopoly-chip-cash">
-                <span className="monopoly-chip-label">Saldo</span>
-                <span className="monopoly-chip-value">{state.myCash}</span>
+              <div className="monopoly-hud-turn">
+                <span
+                  className="monopoly-hud-turn-dot"
+                  style={{ background: colorById[state.currentPlayerId || ''] }}
+                  aria-hidden
+                />
+                <span className="monopoly-hud-turn-text">
+                  {state.isMyTurn ? 'Twoja tura' : state.currentTurnName}
+                </span>
               </div>
             </div>
 
-            <div className="monopoly-hud-right">
-              <button
-                type="button"
-                className="monopoly-inv-btn"
-                onClick={() => setBoardModePersist(boardMode === '2d' ? '3d' : '2d')}
-                aria-label={boardMode === '2d' ? 'Włącz planszę 3D' : 'Włącz planszę 2D'}
+            <div className="monopoly-hud-tools">
+              <div
+                className={`monopoly-die-wrap${diceRolling ? ' is-rolling' : ''}${bonusFlash ? ' is-bonus' : ''}`}
               >
-                {boardMode === '2d' ? '3D' : '2D'}
-              </button>
-              <button
-                type="button"
-                className="monopoly-inv-btn"
-                disabled={!state.canProposeTrade}
-                onClick={openTrade}
-              >
-                Handel
-              </button>
-              <button
-                type="button"
-                className="monopoly-inv-btn"
-                onClick={() => setPiecePickerOpen(true)}
-              >
-                Pionek
-                {myToken?.piece && (
-                  <span className="monopoly-piece-icon" aria-hidden>
-                    {PIECE_ICONS[(myToken.piece as PieceId)] || '♟'}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                className="monopoly-inv-btn"
-                onClick={() => setInventoryOpen(true)}
-              >
-                Karty
-                {myProperties.length > 0 && (
-                  <span className="monopoly-inv-count">{myProperties.length}</span>
-                )}
-              </button>
-
-              <div className={`monopoly-die-wrap${diceRolling ? ' is-rolling' : ''}${bonusFlash ? ' is-bonus' : ''}`}>
                 <div className="monopoly-die" aria-label="Kostka">
                   {dieFace ?? '·'}
                 </div>
                 {bonusFlash && <span className="monopoly-die-bonus">+6!</span>}
               </div>
+              <button
+                type="button"
+                className="monopoly-menu-btn"
+                aria-label="Menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(true)}
+              >
+                <span className="monopoly-menu-btn-bars" aria-hidden />
+                {myProperties.length > 0 && (
+                  <span className="monopoly-menu-badge">{myProperties.length}</span>
+                )}
+              </button>
             </div>
-          </div>
+          </header>
 
           <div className="monopoly-layout">
             <div className="monopoly-board-wrap">
@@ -493,6 +469,105 @@ export default function Monopoly() {
           <div className="monopoly-action-bar" aria-label="Akcje tury">
             <TurnActions state={state} emit={emit} onRoll={handleRoll} rolling={diceRolling} compact />
           </div>
+
+          {menuOpen && (
+            <div className="monopoly-sheet-overlay" onClick={() => setMenuOpen(false)}>
+              <div className="monopoly-sheet monopoly-menu-sheet" onClick={(e) => e.stopPropagation()}>
+                <div className="monopoly-inventory-head">
+                  <h2>Menu</h2>
+                  <button
+                    type="button"
+                    className="monopoly-deed-close"
+                    onClick={() => setMenuOpen(false)}
+                    aria-label="Zamknij"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <ul className="monopoly-menu-list">
+                  <li>
+                    <button
+                      type="button"
+                      className="monopoly-menu-item"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setInventoryOpen(true);
+                      }}
+                    >
+                      <span>Karty</span>
+                      <span className="monopoly-menu-item-meta">
+                        {myProperties.length > 0 ? myProperties.length : '—'}
+                      </span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="monopoly-menu-item"
+                      disabled={!state.canProposeTrade}
+                      onClick={() => {
+                        setMenuOpen(false);
+                        openTrade();
+                      }}
+                    >
+                      <span>Handel</span>
+                      <span className="monopoly-menu-item-meta">
+                        {state.canProposeTrade ? 'Otwórz' : 'Niedostępny'}
+                      </span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="monopoly-menu-item"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setPiecePickerOpen(true);
+                      }}
+                    >
+                      <span>Pionek</span>
+                      <span className="monopoly-menu-item-meta" aria-hidden>
+                        {PIECE_ICONS[(myToken?.piece as PieceId) || 'pawn'] || '♟'}
+                      </span>
+                    </button>
+                  </li>
+                  <li>
+                    <button
+                      type="button"
+                      className="monopoly-menu-item"
+                      onClick={() => {
+                        setBoardModePersist(boardMode === '2d' ? '3d' : '2d');
+                        setMenuOpen(false);
+                      }}
+                    >
+                      <span>Plansza</span>
+                      <span className="monopoly-menu-item-meta">
+                        {boardMode === '2d' ? 'Przełącz na 3D' : 'Przełącz na 2D'}
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+
+                <p className="monopoly-trade-section">Gracze</p>
+                <ul className="monopoly-menu-players">
+                  {state.tokens.map((t) => (
+                    <li key={t.id} className={t.bankrupt ? 'is-out' : ''}>
+                      <span className="monopoly-player-swatch" style={{ background: colorById[t.id] }}>
+                        {PIECE_ICONS[(t.piece as PieceId)] || '♟'}
+                      </span>
+                      <span className="monopoly-player-name">
+                        {t.name}
+                        {t.id === playerId ? ' (Ty)' : ''}
+                        {t.id === state.currentPlayerId ? ' · tura' : ''}
+                      </span>
+                      <span className="monopoly-player-cash">{t.bankrupt ? 'OUT' : t.cash}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
         </>
       )}
 

@@ -74,19 +74,202 @@
   color: var(--m-muted);
 }
 
-/* Compact mobile-first HUD */
+/* Compact mobile-first HUD — saldo + tura + kostka + menu */
 .monopoly-hud {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 6px 8px 6px 12px;
   background: var(--m-bg-elev);
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid var(--m-line);
+  flex-shrink: 0;
+  min-height: 48px;
+}
+
+.monopoly-hud-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.monopoly-hud-cash {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
   flex-shrink: 0;
 }
 
+.monopoly-hud-cash-label {
+  color: var(--m-gold);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.monopoly-hud-cash-value {
+  color: var(--m-gold);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+}
+
+.monopoly-hud-turn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.monopoly-hud-turn-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12);
+}
+
+.monopoly-hud-turn-text {
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--m-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monopoly-hud-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.monopoly-menu-btn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--m-line);
+  background: var(--m-bg-soft);
+  color: var(--m-text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  padding: 0;
+}
+
+.monopoly-menu-btn-bars,
+.monopoly-menu-btn-bars::before,
+.monopoly-menu-btn-bars::after {
+  display: block;
+  width: 16px;
+  height: 2px;
+  background: var(--m-text);
+  border-radius: 2px;
+}
+
+.monopoly-menu-btn-bars {
+  position: relative;
+}
+
+.monopoly-menu-btn-bars::before,
+.monopoly-menu-btn-bars::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.monopoly-menu-btn-bars::before {
+  top: -5px;
+}
+
+.monopoly-menu-btn-bars::after {
+  top: 5px;
+}
+
+.monopoly-menu-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--m-red);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+.monopoly-menu-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.monopoly-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--m-line);
+  background: var(--m-bg-soft);
+  color: var(--m-text);
+  font-size: 1rem;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: left;
+}
+
+.monopoly-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.monopoly-menu-item-meta {
+  color: var(--m-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.monopoly-menu-players {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.monopoly-menu-players li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  font-size: 0.9rem;
+}
+
+.monopoly-menu-sheet {
+  max-height: min(78vh, 560px);
+  overflow-y: auto;
+}
+
+/* Legacy chip classes kept for any leftover refs */
 .monopoly-hud-chips {
   display: flex;
   gap: 8px;
@@ -598,21 +781,18 @@
 @media (max-width: 820px) {
   .page.monopoly-page {
     max-width: 480px;
-    padding: 6px 8px;
-    /* Min bar ~36px + safe */
+    padding: 4px 6px;
     padding-bottom: calc(40px + var(--safe-bottom));
+    gap: 6px;
   }
 
   .monopoly-layout {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 0;
   }
 
   .monopoly-side {
-    order: 1;
-    position: static;
-    max-height: none;
-    overflow: visible;
+    display: none;
   }
 
   .monopoly-actions-desktop {
@@ -621,17 +801,36 @@
 
   .monopoly-board-wrap,
   .monopoly-canvas {
-    min-height: min(56vh, 100vw);
-    height: min(56vh, 100vw);
+    min-height: min(62vh, 100vw);
+    height: min(62vh, 100vw);
+    border-radius: 12px;
   }
 
   .monopoly-hud {
-    padding: 6px;
-    border-radius: 14px;
+    padding: 4px 6px 4px 10px;
+    border-radius: 12px;
+    min-height: 44px;
   }
 
-  .monopoly-chip {
-    padding: 6px 8px;
+  .monopoly-hud-cash-value {
+    font-size: 1.05rem;
+  }
+
+  .monopoly-hud-turn-text {
+    font-size: 0.82rem;
+  }
+
+  .monopoly-die {
+    width: 36px;
+    height: 36px;
+    font-size: 1.05rem;
+    border-radius: 10px;
+  }
+
+  .monopoly-menu-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
   }
 
   .monopoly-action-bar {
@@ -649,8 +848,8 @@
 }
 
 @media (max-width: 480px) {
-  .monopoly-chip-cash {
-    min-width: 76px;
+  .monopoly-hud-cash {
+    min-width: auto;
   }
 }
 
@@ -688,15 +887,15 @@
 }
 
 .monopoly-die {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
   color: #111;
   font-weight: 800;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
   transition: transform 0.15s;
 }
