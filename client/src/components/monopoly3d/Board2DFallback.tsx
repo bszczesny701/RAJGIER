@@ -224,7 +224,7 @@ export default function Board2DFallback({
             <span>LOS</span>
           </div>
           <div className="monopoly-center-brand">
-            <p className="monopoly-center-title">MONOPOLY</p>
+            <p className="monopoly-center-title">CwelPoly</p>
             <img
               className="monopoly-center-mascot"
               src="/monopoly-mascot.png"

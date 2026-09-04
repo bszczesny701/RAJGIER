@@ -260,7 +260,7 @@ function DeckLabel({ text, color, stroke }: { text: string; color: string; strok
 
 function CenterBrand3D() {
   const titleMap = useMemo(
-    () => makeLabelTexture('MONOPOLY', '#fbbf24', { bold: true, stroke: '#7f1d1d' }),
+    () => makeLabelTexture('CwelPoly', '#fbbf24', { bold: true, stroke: '#7f1d1d' }),
     []
   );
   const [mascot, setMascot] = useState<THREE.Texture | null>(null);
