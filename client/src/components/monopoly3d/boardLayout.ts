@@ -59,6 +59,7 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
     if (space.name.includes('Wodo')) return 'Wod.';
     return 'Med.';
   }
+  if (space.name.startsWith('WC')) return 'WC';
   const first = space.name.split(/\s+/)[0] || space.name;
   return first.length <= 6 ? first : `${first.slice(0, 5)}.`;
 }

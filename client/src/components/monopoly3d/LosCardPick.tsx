@@ -13,7 +13,8 @@ export default function LosCardPick({
   onPick: (slot: number) => void;
 }) {
   const [flipping, setFlipping] = useState<number | null>(null);
-  const slots = Array.from({ length: count }, (_, i) => i);
+  const n = Number.isFinite(count) && count > 0 ? Math.min(3, Math.floor(count)) : 3;
+  const slots = Array.from({ length: n }, (_, i) => i);
 
   const handlePick = (slot: number) => {
     if (!isMine || flipping != null) return;

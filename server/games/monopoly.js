@@ -383,6 +383,7 @@ function offerCardPick(state, playerId, kind) {
     kind,
     options,
   };
+  state.phase = 'awaitCardPick';
   pushLog(state, kind === 'chance' ? 'Los — wybierz 1 z 3 kart.' : 'Kasa — wybierz kartę.');
 }
 
@@ -838,7 +839,14 @@ function monopolyPickCard(state, playerId, slotIndex) {
   state[deckKey] = shuffle([...state[deckKey], ...rest]);
   state.pendingCardPick = null;
 
-  applyCard(state, playerId, getCard(chosenId));
+  const card = getCard(chosenId);
+  if (!card) {
+    pushLog(state, 'Błąd karty Los — tura idzie dalej.');
+    afterLanding(state, playerId);
+    return { ok: true };
+  }
+
+  applyCard(state, playerId, card);
   afterLanding(state, playerId);
   return { ok: true };
 }

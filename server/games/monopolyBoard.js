@@ -12,7 +12,7 @@ const HOUSE_COST_BY_GROUP = {
 
 const BOARD = [
   { type: 'go', name: 'Start', group: 'special' },
-  { type: 'investment', name: 'Toaleta w Kościuchu', group: 'brown', price: 60, rent: [2, 10, 30, 90, 160, 250], houseCost: 50 },
+  { type: 'investment', name: 'WC w Kościuchu', group: 'brown', price: 60, rent: [2, 10, 30, 90, 160, 250], houseCost: 50 },
   { type: 'chest', name: 'Kasa społeczna', group: 'special' },
   { type: 'investment', name: 'Bagno Parzniewskie', group: 'brown', price: 60, rent: [4, 20, 60, 180, 320, 450], houseCost: 50 },
   { type: 'tax', name: 'Podatek', group: 'special', tax: 200 },

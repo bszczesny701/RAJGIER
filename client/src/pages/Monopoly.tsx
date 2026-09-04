@@ -28,7 +28,7 @@ function TurnActions({
 }: {
   state: MonopolyState;
   onRoll: () => void;
-  emit: (event: string) => void;
+  emit: (event: string, extra?: Record<string, unknown>) => void;
   compact?: boolean;
   rolling?: boolean;
 }) {
@@ -45,7 +45,28 @@ function TurnActions({
   }
 
   if (state.phase === 'awaitCardPick' || state.canPickCard) {
-    return <p className="monopoly-focus-meta">Wybierz kartę Los…</p>;
+    const count = Math.max(2, Math.min(3, state.pendingCardPick?.count ?? 3));
+    if (state.canPickCard || state.pendingCardPick?.isMine) {
+      return (
+        <div className={`monopoly-action-btns${compact ? ' is-compact' : ''}`}>
+          {Array.from({ length: count }, (_, slot) => (
+            <button
+              key={slot}
+              type="button"
+              className="btn btn-primary"
+              onClick={() => emit('monopolyPickCard', { slot })}
+            >
+              {compact ? `Los ${slot + 1}` : `Wybierz kartę ${slot + 1}`}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <p className="monopoly-focus-meta">
+        {state.pendingCardPick?.playerName || 'Gracz'} wybiera kartę Los…
+      </p>
+    );
   }
 
   return (
