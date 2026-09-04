@@ -262,6 +262,9 @@ export default function Board2DFallback({
             >
               {!hideBar && <span className="monopoly-cell-bar" style={{ background: bar }} />}
               <span className="monopoly-cell-label">{shortLabel(space)}</span>
+              {space.name.startsWith('WC') && (
+                <img className="monopoly-cell-icon" src="/wc-icon.png" alt="" draggable={false} />
+              )}
               {space.ownerId && (
                 <span
                   className="monopoly-owner-dot"
@@ -292,6 +295,7 @@ export default function Board2DFallback({
           const slot = Math.max(0, ids.indexOf(t.id));
           const ox = ((slot % 3) - 1) * 6;
           const oy = Math.floor(slot / 3) * 6;
+          const initial = (t.name || '?').trim().charAt(0).toUpperCase() || '?';
           return (
             <span
               key={t.id}
@@ -303,10 +307,10 @@ export default function Board2DFallback({
                 height: `${100 / 11}%`,
                 ['--token-shift' as string]: `translate(${ox}px, ${oy}px)`,
               }}
-              title={`${t.name}${t.piece ? ` (${t.piece})` : ''}`}
+              title={t.name}
             >
               <span className="monopoly-token-float-inner" style={{ background: colorById[t.id] }}>
-                {(t.piece || 'pawn').slice(0, 1).toUpperCase()}
+                {initial}
               </span>
             </span>
           );

@@ -856,6 +856,19 @@
   text-overflow: ellipsis;
 }
 
+.monopoly-cell-icon {
+  display: block;
+  margin: auto auto 2px;
+  width: clamp(11px, 3.4cqi, 20px);
+  height: clamp(11px, 3.4cqi, 20px);
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  opacity: 0.92;
+  flex-shrink: 0;
+}
+
 .monopoly-owner-dot {
   position: absolute;
   top: 8px;

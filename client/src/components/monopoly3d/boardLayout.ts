@@ -61,6 +61,9 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   }
   if (space.name.startsWith('WC')) return 'WC';
   if (space.name.startsWith('Bagno')) return 'Bagno';
+  if (space.name === 'Polna') return 'Polna';
+  if (space.name.includes('Nowa Stacja')) return 'Nowa St.';
+  if (space.name.includes('WPR')) return 'WPR';
   const first = space.name.split(/\s+/)[0] || space.name;
   return first.length <= 7 ? first : `${first.slice(0, 6)}.`;
 }

@@ -48,6 +48,30 @@ function makeLabelTexture(text: string, color: string, opts: LabelOpts = {}) {
   return tex;
 }
 
+function WcIcon3D({ y }: { y: number }) {
+  const [map, setMap] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+    let alive = true;
+    loader.load('/wc-icon.png', (tex) => {
+      if (!alive) return;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      setMap(tex);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!map) return null;
+  return (
+    <mesh position={[0, y, 0.22]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[0.32, 0.32]} />
+      <meshBasicMaterial map={map} transparent depthWrite={false} />
+    </mesh>
+  );
+}
+
 function CellLabel({
   text,
   color,
@@ -143,6 +167,8 @@ function SpaceMesh({
         stroke={labelStroke}
         wide={specialFill}
       />
+
+      {space.name.startsWith('WC') && <WcIcon3D y={baseH + 0.05} />}
 
       {ownerColor && (
         <mesh position={[CELL * 0.3, baseH + 0.07, CELL * 0.3]}>

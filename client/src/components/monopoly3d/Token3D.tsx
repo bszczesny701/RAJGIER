@@ -14,6 +14,31 @@ const OFFSETS = [
   [0, 0.28],
 ];
 
+function makeNickTexture(letter: string, bg: string) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.arc(64, 64, 60, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = '900 70px system-ui, Segoe UI, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(letter, 64, 70);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function BodyMat({ color }: { color: string }) {
   return <meshStandardMaterial color={color} roughness={0.22} metalness={0.35} />;
 }
@@ -222,10 +247,18 @@ export default function Token3D({
   });
 
   const scale = isMe ? 1.15 : 1;
+  const initial = (token.name || '?').trim().charAt(0).toUpperCase() || '?';
+  const letterMap = useMemo(() => makeNickTexture(initial, color), [initial, color]);
 
   return (
     <group ref={group} position={[target.x, 0, target.z]} scale={scale}>
       <PieceMesh piece={piece} color={color} />
+      {letterMap && (
+        <mesh position={[0, 0.48, 0]} rotation={[-0.4, 0, 0]}>
+          <planeGeometry args={[0.28, 0.28]} />
+          <meshBasicMaterial map={letterMap} transparent depthWrite={false} />
+        </mesh>
+      )}
       {token.inJail && (
         <mesh position={[0, 0.42, 0]}>
           <torusGeometry args={[0.2, 0.025, 8, 16]} />
