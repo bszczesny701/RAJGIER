@@ -33,7 +33,7 @@ export const GROUP_COLORS: Record<string, string> = {
   green: '#22c55e',
   darkblue: '#2563eb',
   rail: '#94a3b8',
-  utility: '#22d3ee',
+  utility: '#a855f7',
   special: '#fbbf24',
 };
 
@@ -55,9 +55,9 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
     return 'WKD';
   }
   if (space.type === 'utility') {
-    if (space.name.includes('Elektro')) return 'El.';
-    if (space.name.includes('Wodo')) return 'Wod.';
-    return 'Med.';
+    if (space.name.includes('Żywień') || space.name.includes('Zywien')) return 'Żywień';
+    if (space.name.includes('Bożen') || space.name.includes('Bozen')) return 'Bożeny';
+    return 'Lekcja';
   }
   if (space.name.startsWith('WC')) return 'WC';
   if (space.name.startsWith('Bagno')) return 'Bagno';

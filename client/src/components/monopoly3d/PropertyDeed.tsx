@@ -11,7 +11,7 @@ const GROUP_NAMES: Record<string, string> = {
   green: 'Zielona',
   darkblue: 'Granatowa',
   rail: 'Stacje',
-  utility: 'Media',
+  utility: 'Lekcje',
   special: 'Specjalne',
 };
 
@@ -116,7 +116,7 @@ export default function PropertyDeed({
 
         {isUtility && (
           <p className="monopoly-deed-meta">
-            Czynsz = wynik kostki × 4 (1 media) lub × 10 (obie).
+            Czynsz = wynik kostki × 4 (1 lekcja) lub × 10 (obie).
           </p>
         )}
 
