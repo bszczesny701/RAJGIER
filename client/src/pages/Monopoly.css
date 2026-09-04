@@ -36,6 +36,13 @@
   .app-shell:has(.monopoly-page) .app-nav {
     display: none;
   }
+
+  /* bez dodatkowej pustki pod paskiem akcji (viewport / home indicator) */
+  .app-shell:has(.monopoly-page),
+  .app-main:has(.monopoly-page),
+  .page.monopoly-page {
+    background: #0a0a0b;
+  }
 }
 
 .monopoly-page .card {
@@ -965,6 +972,8 @@
     min-height: 0;
     overflow: hidden;
     padding: 4px 6px 0;
+    /* miejsce na fixed pasek akcji — bez dodatkowej dziury pod nim */
+    padding-bottom: calc(58px + var(--safe-bottom));
     gap: 4px;
     display: flex;
     flex-direction: column;
@@ -1006,10 +1015,11 @@
     height: 100%;
     width: 100%;
     max-height: 100%;
+    min-height: min(100%, 100vw);
   }
 
   .monopoly-board-2d {
-    width: min(100%, calc(100dvh - 132px));
+    width: min(100%, 100%);
     max-width: 100%;
     max-height: 100%;
     height: auto;
@@ -1047,17 +1057,17 @@
 
   .monopoly-action-bar {
     display: block;
-    position: relative;
-    left: auto;
-    right: auto;
-    bottom: auto;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 40;
-    flex-shrink: 0;
-    margin-top: auto;
-    padding: 8px 6px calc(8px + var(--safe-bottom));
-    background: rgba(10, 10, 11, 0.98);
+    margin: 0;
+    /* tło wchodzi w safe-area — nie ma czarnej dziury pod przyciskami */
+    padding: 8px 8px 0;
+    padding-bottom: max(8px, var(--safe-bottom));
+    background: #0a0a0b;
     border-top: 1px solid var(--m-line);
-    backdrop-filter: blur(12px);
   }
 }
 

@@ -1,4 +1,4 @@
-import { RoundedBox, Text } from '@react-three/drei';
+import { RoundedBox } from '@react-three/drei';
 import { useMemo } from 'react';
 import type { MonopolySpace } from './types';
 import {
@@ -7,7 +7,6 @@ import {
   GROUP_COLORS,
   indexToWorld,
   isCorner,
-  shortLabel,
 } from './boardLayout';
 
 function SpaceMesh({
@@ -23,12 +22,19 @@ function SpaceMesh({
   const corner = isCorner(space.index);
   const baseH = corner ? 0.22 : 0.14;
   const strip = GROUP_COLORS[space.group] || GROUP_COLORS.special;
-  const label = shortLabel(space);
-  const isJail = space.type === 'jail' || space.type === 'gotojail';
   const houses = space.houses || 0;
+  const isJail = space.type === 'jail' || space.type === 'gotojail';
   const isLos = space.type === 'chance';
-  const cellColor = isLos ? '#1d4ed8' : corner ? '#fff8ea' : focused ? '#fff1c2' : '#fffcf5';
-  const labelColor = isLos ? '#ffffff' : '#111111';
+  const isChest = space.type === 'chest';
+  const cellColor = isLos
+    ? '#1d4ed8'
+    : isChest
+      ? '#f59e0b'
+      : corner
+        ? '#fff8ea'
+        : focused
+          ? '#fff1c2'
+          : '#fffcf5';
 
   return (
     <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
@@ -37,17 +43,11 @@ function SpaceMesh({
         radius={0.04}
         smoothness={2}
         position={[0, baseH / 2, 0]}
-        castShadow
-        receiveShadow
       >
-        <meshStandardMaterial
-          color={cellColor}
-          roughness={0.65}
-          metalness={0}
-        />
+        <meshStandardMaterial color={cellColor} roughness={0.65} metalness={0} />
       </RoundedBox>
 
-      {!isLos && (
+      {!isLos && !isChest && (
         <mesh position={[0, baseH + 0.02, -CELL * 0.32]}>
           <boxGeometry args={[CELL * 0.82, 0.1, CELL * 0.18]} />
           <meshStandardMaterial color={strip} roughness={0.4} metalness={0.05} />
@@ -85,21 +85,6 @@ function SpaceMesh({
           <meshStandardMaterial color="#52525b" roughness={0.5} />
         </mesh>
       )}
-
-      <Text
-        position={[0, baseH + 0.08, 0.08]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={isLos ? 0.28 : corner ? 0.22 : 0.2}
-        color={labelColor}
-        anchorX="center"
-        anchorY="middle"
-        maxWidth={CELL * 0.8}
-        textAlign="center"
-        outlineWidth={isLos ? 0 : 0.008}
-        outlineColor="#ffffff"
-      >
-        {label}
-      </Text>
 
       {focused && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.015, 0]}>
@@ -140,12 +125,11 @@ export default function Board3D({
         radius={0.08}
         smoothness={3}
         position={[0, -0.1, 0]}
-        receiveShadow
       >
         <meshStandardMaterial color="#1a1a1c" roughness={0.7} metalness={0.05} />
       </RoundedBox>
 
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
         <planeGeometry args={[BOARD_SPAN * 0.7, BOARD_SPAN * 0.7]} />
         <meshStandardMaterial color="#2a2a2e" roughness={0.85} />
       </mesh>
@@ -154,31 +138,11 @@ export default function Board3D({
         <RoundedBox args={[1.1, 0.12, 1.5]} radius={0.04} position={[0, 0.06, 0]}>
           <meshStandardMaterial color="#1d4ed8" />
         </RoundedBox>
-        <Text
-          position={[0, 0.14, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          fontSize={0.28}
-          color="#fff"
-          anchorX="center"
-          anchorY="middle"
-        >
-          LOS
-        </Text>
       </group>
       <group position={[0.7, 0.08, -0.2]}>
         <RoundedBox args={[1.1, 0.12, 1.5]} radius={0.04} position={[0, 0.06, 0]}>
           <meshStandardMaterial color="#f59e0b" />
         </RoundedBox>
-        <Text
-          position={[0, 0.14, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          fontSize={0.24}
-          color="#111"
-          anchorX="center"
-          anchorY="middle"
-        >
-          KASA
-        </Text>
       </group>
 
       {cells.map((space) => (
