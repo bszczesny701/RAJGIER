@@ -60,8 +60,9 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
     return 'Med.';
   }
   if (space.name.startsWith('WC')) return 'WC';
+  if (space.name.startsWith('Bagno')) return 'Bagno';
   const first = space.name.split(/\s+/)[0] || space.name;
-  return first.length <= 6 ? first : `${first.slice(0, 5)}.`;
+  return first.length <= 7 ? first : `${first.slice(0, 6)}.`;
 }
 
 export const RENT_LABELS = ['Bez ulepszeń', '1 dom', '2 domy', '3 domy', '4 domy', 'Hotel'];

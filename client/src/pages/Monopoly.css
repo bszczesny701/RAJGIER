@@ -364,11 +364,9 @@
   min-height: min(70vh, 720px);
   border-radius: 16px;
   overflow: hidden;
-  border: 3px solid #14532d;
-  background: linear-gradient(160deg, #166534 0%, #14532d 55%, #052e16 100%);
-  box-shadow:
-    var(--m-shadow),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--m-line);
+  background: #050505;
+  box-shadow: var(--m-shadow);
 }
 
 .monopoly-board-viewport {
@@ -376,17 +374,22 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  touch-action: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
   -webkit-user-select: none;
   user-select: none;
 }
 
-.monopoly-board-viewport:active {
-  cursor: grabbing;
+@media (hover: none), (pointer: coarse) {
+  .monopoly-board-viewport {
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .monopoly-board-viewport:active {
+    cursor: grabbing;
+  }
 }
 
 .monopoly-canvas-placeholder {
@@ -422,11 +425,11 @@
   width: min(100%, calc(100vh - 160px), 820px);
   height: auto;
   margin: 0 auto;
-  background: #bbf7d0;
-  border: 3px solid #0f172a;
+  background: #1a1a1a;
+  border: 2px solid #0f172a;
   border-radius: 8px;
   box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
     0 8px 20px rgba(0, 0, 0, 0.35);
   transform-origin: center center;
   will-change: transform;
@@ -1032,8 +1035,8 @@
 @media (max-width: 820px) {
   .page.monopoly-page {
     max-width: 480px;
-    padding: max(6px, var(--safe-top)) 6px calc(52px + var(--safe-bottom));
-    gap: 6px;
+    padding: max(4px, var(--safe-top)) 4px calc(52px + var(--safe-bottom));
+    gap: 4px;
   }
 
   .monopoly-layout {
@@ -1051,9 +1054,11 @@
 
   .monopoly-board-wrap,
   .monopoly-canvas {
-    min-height: min(72vh, 100vw);
-    height: min(72vh, 100vw);
-    border-radius: 14px;
+    /* prawie pełna szerokość ekranu — napisy na polach czytelne */
+    width: 100%;
+    min-height: min(100vw - 4px, calc(100dvh - 112px));
+    height: min(100vw - 4px, calc(100dvh - 112px));
+    border-radius: 12px;
   }
 
   .monopoly-board-viewport {
@@ -1067,6 +1072,34 @@
     height: auto;
     aspect-ratio: 1;
     max-height: 100%;
+  }
+
+  .monopoly-cell {
+    padding: 2px 1px;
+  }
+
+  .monopoly-cell-bar {
+    height: 6px;
+  }
+
+  .monopoly-cell-label {
+    font-size: clamp(0.62rem, 3.2vw, 0.88rem);
+    font-weight: 800;
+    margin-top: 1px;
+    white-space: normal;
+    line-height: 1.05;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    text-overflow: ellipsis;
+  }
+
+  .monopoly-cell.is-los .monopoly-cell-label,
+  .monopoly-cell.is-kupon .monopoly-cell-label,
+  .monopoly-cell.is-chest .monopoly-cell-label {
+    font-size: clamp(0.7rem, 3.6vw, 1rem);
+    -webkit-line-clamp: 1;
   }
 
   .monopoly-hud {

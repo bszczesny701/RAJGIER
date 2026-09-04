@@ -70,6 +70,10 @@ export default function Board2DFallback({
     if (!el) return;
 
     const onDown = (e: PointerEvent) => {
+      // Mysz: nie przejmuj pointera — klik w pole ma działać normalnie (karta).
+      // Zoom myszą: kółko. Touch: pinch / pan / tap.
+      if (e.pointerType === 'mouse') return;
+
       el.setPointerCapture(e.pointerId);
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       tapStart.current = { x: e.clientX, y: e.clientY, t: Date.now() };
@@ -98,6 +102,7 @@ export default function Board2DFallback({
     };
 
     const onMove = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
       if (!pointers.current.has(e.pointerId)) return;
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -125,6 +130,8 @@ export default function Board2DFallback({
     };
 
     const onUp = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+
       pointers.current.delete(e.pointerId);
       try {
         el.releasePointerCapture(e.pointerId);
@@ -136,6 +143,7 @@ export default function Board2DFallback({
       if (pointers.current.size === 0) {
         const start = tapStart.current;
         tapStart.current = null;
+        const wasPanning = !!panStart.current;
         panStart.current = null;
 
         if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) < TAP_PX) {
@@ -143,8 +151,15 @@ export default function Board2DFallback({
           if (now - lastTap.current < 320) {
             applyTransform({ scale: 1, x: 0, y: 0 });
             lastTap.current = 0;
-          } else {
-            lastTap.current = now;
+            return;
+          }
+          lastTap.current = now;
+
+          if (!wasPanning) {
+            const hit = document.elementFromPoint(e.clientX, e.clientY);
+            const cell = hit?.closest('[data-space-index]') as HTMLElement | null;
+            const idx = cell ? Number(cell.dataset.spaceIndex) : NaN;
+            if (Number.isInteger(idx)) onSelectSpace?.(idx);
           }
         }
       } else if (pointers.current.size === 1) {
@@ -180,7 +195,7 @@ export default function Board2DFallback({
       el.removeEventListener('pointercancel', onUp);
       el.removeEventListener('wheel', onWheel);
     };
-  }, [applyTransform]);
+  }, [applyTransform, onSelectSpace]);
 
   const slotsBySpace = useMemo(() => {
     const map: Record<number, string[]> = {};
@@ -229,6 +244,7 @@ export default function Board2DFallback({
               key={space.index}
               role="button"
               tabIndex={0}
+              data-space-index={space.index}
               className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}${space.mortgaged ? ' is-mortgaged' : ''}${isLos ? ' is-los' : ''}${isChest ? ' is-chest' : ''}${isKupon ? ' is-kupon' : ''}`}
               style={{ gridRow: row + 1, gridColumn: col + 1 }}
               title={space.name}

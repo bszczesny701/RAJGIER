@@ -230,12 +230,12 @@ export default function Board3D({
         smoothness={4}
         position={[0, -0.1, 0]}
       >
-        <meshStandardMaterial color="#14532d" roughness={0.55} metalness={0.08} />
+        <meshStandardMaterial color="#1a1a1c" roughness={0.55} metalness={0.08} />
       </RoundedBox>
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]}>
         <planeGeometry args={[BOARD_SPAN * 0.72, BOARD_SPAN * 0.72]} />
-        <meshStandardMaterial color="#bbf7d0" roughness={0.7} />
+        <meshStandardMaterial color="#2a2a2e" roughness={0.7} />
       </mesh>
 
       <group position={[-0.7, 0.08, 0.2]}>
