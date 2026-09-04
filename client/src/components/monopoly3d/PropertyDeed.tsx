@@ -61,7 +61,7 @@ export default function PropertyDeed({
           <p className="monopoly-deed-price">Cena zakupu: <strong>{space.price}</strong></p>
         )}
         {space.tax != null && (
-          <p className="monopoly-deed-price">Podatek: <strong>{space.tax}</strong></p>
+          <p className="monopoly-deed-price">Kupon: <strong>−{space.tax}</strong></p>
         )}
 
         {ownerName && (

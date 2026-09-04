@@ -429,7 +429,7 @@ function resolveLanding(state, playerId, opts = {}) {
   }
 
   if (space.type === 'tax') {
-    debit(state, playerId, space.tax || 0, null, `Podatek ${space.tax}`);
+    debit(state, playerId, space.tax || 0, null, `Kupon −${space.tax}`);
     return;
   }
 

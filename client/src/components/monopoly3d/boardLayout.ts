@@ -24,16 +24,16 @@ export function isCorner(index: number): boolean {
 }
 
 export const GROUP_COLORS: Record<string, string> = {
-  brown: '#8b4513',
-  lightblue: '#87ceeb',
-  pink: '#ff69b4',
-  orange: '#ff8c42',
+  brown: '#a0522d',
+  lightblue: '#38bdf8',
+  pink: '#f472b6',
+  orange: '#fb923c',
   red: '#ef4444',
-  yellow: '#eab308',
+  yellow: '#facc15',
   green: '#22c55e',
-  darkblue: '#1d4ed8',
+  darkblue: '#2563eb',
   rail: '#94a3b8',
-  utility: '#38bdf8',
+  utility: '#22d3ee',
   special: '#fbbf24',
 };
 
@@ -46,7 +46,7 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   if (space.type === 'gotojail') return 'Więz!';
   if (space.type === 'chance') return 'LOS';
   if (space.type === 'chest') return 'Kasa';
-  if (space.type === 'tax') return space.name.includes('luksus') ? 'Lux' : 'Pod.';
+  if (space.type === 'tax') return 'KUPON';
   if (space.type === 'rail') {
     if (space.name.includes('Główny')) return 'Gł.';
     if (space.name.includes('Wschod')) return 'Wsch.';

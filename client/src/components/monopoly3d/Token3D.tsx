@@ -15,7 +15,7 @@ const OFFSETS = [
 ];
 
 function BodyMat({ color }: { color: string }) {
-  return <meshStandardMaterial color={color} roughness={0.35} metalness={0.2} />;
+  return <meshStandardMaterial color={color} roughness={0.22} metalness={0.35} />;
 }
 
 function PieceMesh({ piece, color }: { piece: PieceId; color: string }) {

@@ -15,7 +15,7 @@ const BOARD = [
   { type: 'investment', name: 'WC w Kościuchu', group: 'brown', price: 60, rent: [2, 10, 30, 90, 160, 250], houseCost: 50 },
   { type: 'chest', name: 'Kasa społeczna', group: 'special' },
   { type: 'investment', name: 'Bagno Parzniewskie', group: 'brown', price: 60, rent: [4, 20, 60, 180, 320, 450], houseCost: 50 },
-  { type: 'tax', name: 'Podatek', group: 'special', tax: 200 },
+  { type: 'tax', name: 'Kupon', group: 'special', tax: 200 },
   { type: 'rail', name: 'Dworzec Główny', group: 'rail', price: 200, rent: [25, 50, 100, 200] },
   { type: 'investment', name: 'Mickiewicza', group: 'lightblue', price: 100, rent: [6, 30, 90, 270, 400, 550], houseCost: 50 },
   { type: 'chance', name: 'Los', group: 'special' },
@@ -49,7 +49,7 @@ const BOARD = [
   { type: 'rail', name: 'Dworzec Centralny', group: 'rail', price: 200, rent: [25, 50, 100, 200] },
   { type: 'chance', name: 'Los', group: 'special' },
   { type: 'investment', name: 'Złota', group: 'darkblue', price: 350, rent: [35, 175, 500, 1100, 1300, 1500], houseCost: 200 },
-  { type: 'tax', name: 'Podatek luksusowy', group: 'special', tax: 100 },
+  { type: 'tax', name: 'Kupon', group: 'special', tax: 100 },
   { type: 'investment', name: 'Pałacowa', group: 'darkblue', price: 400, rent: [50, 200, 600, 1400, 1700, 2000], houseCost: 200 },
 ];
 
