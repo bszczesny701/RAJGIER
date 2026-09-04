@@ -247,6 +247,16 @@ function WebGlContextGuard({ onLost }: { onLost: () => void }) {
   return null;
 }
 
+function SceneReadySignal({ onReady }: { onReady: () => void }) {
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => onReady());
+    });
+    return () => cancelAnimationFrame(id);
+  }, [onReady]);
+  return null;
+}
+
 export default function MonopolyScene({
   state,
   focusIndex,
@@ -264,14 +274,30 @@ export default function MonopolyScene({
   onSelectSpace?: (index: number) => void;
   onFallbackTo2D?: () => void;
 }) {
-  const [ready, setReady] = useState(false);
+  const [glReady, setGlReady] = useState(false);
+  const [sceneReady, setSceneReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const ok = useMemo(() => supportsWebGL(), []);
+  const ready = glReady && sceneReady;
 
-  const fail = () => {
-    setFailed(true);
-    onFallbackTo2D?.();
-  };
+  const fail = useMemo(
+    () => () => {
+      setFailed(true);
+      onFallbackTo2D?.();
+    },
+    [onFallbackTo2D]
+  );
+
+  const markSceneReady = useMemo(
+    () => () => setSceneReady(true),
+    []
+  );
+
+  useEffect(() => {
+    if (failed || ready) return;
+    const t = window.setTimeout(() => fail(), 2500);
+    return () => window.clearTimeout(t);
+  }, [failed, ready, fail]);
 
   if (!ok || failed) {
     return <>{fallback}</>;
@@ -287,25 +313,29 @@ export default function MonopolyScene({
         )}
         <Canvas
           shadows
-          dpr={[1, 1.5]}
+          dpr={[1, 1.25]}
           frameloop="always"
           style={{
             opacity: ready ? 1 : 0,
-            position: ready ? 'relative' : 'absolute',
+            position: 'absolute',
             inset: 0,
+            zIndex: ready ? 2 : 0,
+            pointerEvents: ready ? 'auto' : 'none',
           }}
           gl={{
-            antialias: true,
-            powerPreference: 'high-performance',
+            antialias: false,
+            powerPreference: 'default',
             alpha: false,
+            failIfMajorPerformanceCaveat: false,
           }}
           onCreated={({ gl }) => {
             gl.setClearColor('#0a0a0b');
-            setReady(true);
+            setGlReady(true);
           }}
         >
           <WebGlContextGuard onLost={fail} />
           <Suspense fallback={null}>
+            <SceneReadySignal onReady={markSceneReady} />
             <SceneContent
               state={state}
               focusIndex={focusIndex}

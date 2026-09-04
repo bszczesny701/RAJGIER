@@ -13,17 +13,9 @@ const MonopolyScene = lazy(() => import('../components/monopoly3d/MonopolyScene'
 const BOARD_MODE_KEY = 'monopolyBoardMode';
 type BoardMode = '2d' | '3d';
 
+/** Zawsze start od 2D — 3D tylko po świadomym kliknięciu (unika czarnego WebGL). */
 function defaultBoardMode(): BoardMode {
-  try {
-    const saved = localStorage.getItem(BOARD_MODE_KEY);
-    if (saved === '2d' || saved === '3d') return saved;
-  } catch {
-    /* ignore */
-  }
-  if (typeof window === 'undefined') return '2d';
-  const narrow = window.matchMedia('(max-width: 820px)').matches;
-  const coarse = window.matchMedia('(pointer: coarse)').matches;
-  return narrow || coarse ? '2d' : '3d';
+  return '2d';
 }
 
 function TurnActions({
@@ -184,6 +176,16 @@ export default function Monopoly() {
   }, [socket, room, requestGameState]);
 
   useEffect(() => {
+    if (state || !socket || !room) return;
+    const retry = window.setInterval(() => requestGameState(), 1200);
+    const stop = window.setTimeout(() => window.clearInterval(retry), 12000);
+    return () => {
+      window.clearInterval(retry);
+      window.clearTimeout(stop);
+    };
+  }, [state, socket, room, requestGameState]);
+
+  useEffect(() => {
     if (state?.pendingCard?.id && state.pendingCard.id !== cardDismissed) {
       setCardDismissed(null);
     }
@@ -335,6 +337,14 @@ export default function Monopoly() {
         <div className="card waiting-text">
           <div className="spinner">🏠</div>
           <p>Ładowanie Monopoly...</p>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ marginTop: 12 }}
+            onClick={() => requestGameState()}
+          >
+            Odśwież
+          </button>
         </div>
       ) : (
         <>
