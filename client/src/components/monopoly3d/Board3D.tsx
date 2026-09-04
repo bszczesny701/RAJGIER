@@ -1,5 +1,6 @@
 import { RoundedBox } from '@react-three/drei';
 import { useMemo } from 'react';
+import * as THREE from 'three';
 import type { MonopolySpace } from './types';
 import {
   BOARD_SPAN,
@@ -7,7 +8,53 @@ import {
   GROUP_COLORS,
   indexToWorld,
   isCorner,
+  shortLabel,
 } from './boardLayout';
+
+/** Napisy bez drei Text (CDN font = czarny ekran / zawieszenie na PWA). */
+function makeLabelTexture(text: string, color: string, bold = false) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = color;
+  ctx.font = `${bold ? 800 : 700} 48px system-ui, Segoe UI, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = text.split('\n');
+  const lineH = lines.length > 1 ? 44 : 48;
+  const startY = canvas.height / 2 - ((lines.length - 1) * lineH) / 2;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, canvas.width / 2, startY + i * lineH, canvas.width - 16);
+  });
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+function CellLabel({
+  text,
+  color,
+  y,
+  bold,
+}: {
+  text: string;
+  color: string;
+  y: number;
+  bold?: boolean;
+}) {
+  const texture = useMemo(() => makeLabelTexture(text, color, bold), [text, color, bold]);
+  if (!texture) return null;
+  return (
+    <mesh position={[0, y, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[CELL * 0.78, CELL * 0.38]} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+    </mesh>
+  );
+}
 
 function SpaceMesh({
   space,
@@ -26,6 +73,7 @@ function SpaceMesh({
   const isJail = space.type === 'jail' || space.type === 'gotojail';
   const isLos = space.type === 'chance';
   const isChest = space.type === 'chest';
+  const label = shortLabel(space);
   const cellColor = isLos
     ? '#1d4ed8'
     : isChest
@@ -35,6 +83,7 @@ function SpaceMesh({
         : focused
           ? '#fff1c2'
           : '#fffcf5';
+  const labelColor = isLos ? '#ffffff' : isChest ? '#111111' : '#111111';
 
   return (
     <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
@@ -53,6 +102,8 @@ function SpaceMesh({
           <meshStandardMaterial color={strip} roughness={0.4} metalness={0.05} />
         </mesh>
       )}
+
+      <CellLabel text={label} color={labelColor} y={baseH + 0.04} bold={isLos || isChest} />
 
       {ownerColor && (
         <mesh position={[CELL * 0.3, baseH + 0.06, CELL * 0.3]}>
@@ -107,6 +158,17 @@ function SpaceMesh({
   );
 }
 
+function DeckLabel({ text, color }: { text: string; color: string }) {
+  const texture = useMemo(() => makeLabelTexture(text, color, true), [text, color]);
+  if (!texture) return null;
+  return (
+    <mesh position={[0, 0.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[0.9, 0.45]} />
+      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+    </mesh>
+  );
+}
+
 export default function Board3D({
   spaces,
   focusIndex,
@@ -138,11 +200,13 @@ export default function Board3D({
         <RoundedBox args={[1.1, 0.12, 1.5]} radius={0.04} position={[0, 0.06, 0]}>
           <meshStandardMaterial color="#1d4ed8" />
         </RoundedBox>
+        <DeckLabel text="LOS" color="#ffffff" />
       </group>
       <group position={[0.7, 0.08, -0.2]}>
         <RoundedBox args={[1.1, 0.12, 1.5]} radius={0.04} position={[0, 0.06, 0]}>
           <meshStandardMaterial color="#f59e0b" />
         </RoundedBox>
+        <DeckLabel text="KASA" color="#111111" />
       </group>
 
       {cells.map((space) => (
