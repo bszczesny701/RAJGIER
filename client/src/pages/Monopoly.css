@@ -433,6 +433,8 @@
     0 8px 20px rgba(0, 0, 0, 0.35);
   transform-origin: center center;
   will-change: transform;
+  container-type: inline-size;
+  container-name: mono-board;
 }
 
 .monopoly-center {
@@ -453,14 +455,14 @@
 }
 
 .monopoly-deck {
-  width: clamp(42px, 12vw, 72px);
-  height: clamp(58px, 16vw, 96px);
+  width: clamp(42px, 12cqi, 72px);
+  height: clamp(58px, 16cqi, 96px);
   border-radius: 10px;
   display: grid;
   place-items: center;
   font-weight: 900;
   letter-spacing: 0.06em;
-  font-size: clamp(0.7rem, 2.4vw, 1rem);
+  font-size: clamp(0.7rem, 2.4cqi, 1rem);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.45),
     2px 4px 0 rgba(0, 0, 0, 0.28),
@@ -492,12 +494,17 @@
 
 .monopoly-cell.is-los .monopoly-cell-label {
   color: #fff !important;
-  font-size: clamp(0.7rem, 2.2vw, 1rem);
+  font-size: clamp(0.65rem, 2.35cqi, 1rem);
   font-weight: 900;
   letter-spacing: 0.08em;
   margin-top: 0;
   text-align: center;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  -webkit-line-clamp: unset;
 }
 
 .monopoly-cell.is-chest {
@@ -513,10 +520,15 @@
 
 .monopoly-cell.is-chest .monopoly-cell-label {
   color: #111 !important;
+  font-size: clamp(0.65rem, 2.35cqi, 1rem);
   font-weight: 900;
   letter-spacing: 0.04em;
   margin-top: 0;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .monopoly-cell.is-kupon {
@@ -533,12 +545,16 @@
 
 .monopoly-cell.is-kupon .monopoly-cell-label {
   color: #fff !important;
-  font-size: clamp(0.62rem, 2vw, 0.9rem);
+  font-size: clamp(0.62rem, 2.2cqi, 0.95rem);
   font-weight: 900;
   letter-spacing: 0.06em;
   margin-top: 0;
   text-align: center;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .monopoly-los-overlay {
@@ -778,7 +794,7 @@
 }
 
 .monopoly-cell-bar {
-  height: 8px;
+  height: clamp(5px, 1.1cqi, 9px);
   border-radius: 3px;
   flex-shrink: 0;
   box-shadow:
@@ -788,12 +804,13 @@
 }
 
 .monopoly-cell-label {
-  font-size: clamp(0.55rem, 0.85vw, 0.78rem);
-  line-height: 1.15;
+  /* Skala względem szerokości planszy → mobile = PC 1:1 proporcje */
+  font-size: clamp(0.52rem, 1.85cqi, 0.82rem);
+  line-height: 1.12;
   font-weight: 750;
   color: #1c1408;
   text-align: center;
-  margin-top: 3px;
+  margin-top: 2px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1031,7 +1048,7 @@
   }
 }
 
-/* Mobile — plansza maksymalnie duża (prawie cały ekran) */
+/* Mobile — ten sam wygląd co PC, plansza max na ekranie */
 @media (max-width: 820px) {
   .app-shell:has(.monopoly-page) .app-nav {
     display: none;
@@ -1058,9 +1075,8 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: max(2px, var(--safe-top)) 0 0;
-    /* miejsce na fixed pasek akcji */
+    gap: 4px;
+    padding: max(4px, var(--safe-top)) 4px 0;
     padding-bottom: calc(54px + var(--safe-bottom));
     background: #0a0a0b;
   }
@@ -1081,32 +1097,27 @@
   }
 
   .monopoly-hud {
-    margin: 0 4px;
+    margin: 0;
     padding: 4px 6px 4px 10px;
     border-radius: 12px;
     min-height: 40px;
     flex-shrink: 0;
   }
 
-  .monopoly-board-wrap,
-  .monopoly-canvas {
+  .monopoly-board-wrap {
     flex: 1 1 auto;
     width: 100%;
     min-width: 0;
     min-height: 0 !important;
     height: auto !important;
-    max-height: none;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
-    box-shadow: none;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: #050505;
   }
 
   .monopoly-board-viewport {
-    /* wypełnia wrap; plansza wewnątrz = największy kwadrat */
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -1115,66 +1126,29 @@
     justify-content: center;
   }
 
-  /*
-   * Największy kwadrat mieszczący się w ekranie:
-   * pełna szerokość telefonu minus tylko HUD (~40) + pasek akcji (~54) + safe.
-   */
+  /* Identyczna plansza jak na PC — tylko większa (pełna szerokość telefonu) */
   .monopoly-board-2d {
-    --mono-board: min(100vw, calc(100dvh - 94px - var(--safe-top) - var(--safe-bottom)));
+    --mono-board: min(100%, calc(100vw - 8px), calc(100dvh - 98px - var(--safe-top) - var(--safe-bottom)));
     width: var(--mono-board) !important;
     height: var(--mono-board) !important;
     max-width: 100%;
     max-height: 100%;
     aspect-ratio: 1;
     margin: 0;
-    border-radius: 0;
-    border-width: 0;
+    /* te same ramki / cienie co desktop — bez nadpisywania komórek */
+    border-radius: 8px;
+    border: 2px solid #0f172a;
   }
 
-  .monopoly-board-wrap > .monopoly-canvas,
   .monopoly-board-wrap .monopoly-canvas {
-    --mono-board: min(100vw, calc(100dvh - 94px - var(--safe-top) - var(--safe-bottom)));
+    --mono-board: min(100vw - 8px, calc(100dvh - 98px - var(--safe-top) - var(--safe-bottom)));
     width: var(--mono-board) !important;
     height: var(--mono-board) !important;
     max-width: 100%;
     max-height: 100%;
     margin: 0;
     flex: none;
-  }
-
-  .monopoly-token-float-inner {
-    width: 20px;
-    height: 20px;
-    font-size: 0.62rem;
-  }
-
-  .monopoly-cell {
-    padding: 2px 1px;
-  }
-
-  .monopoly-cell-bar {
-    height: 7px;
-  }
-
-  .monopoly-cell-label {
-    font-size: clamp(0.68rem, 3.5vw, 0.95rem);
-    font-weight: 800;
-    margin-top: 1px;
-    white-space: normal;
-    line-height: 1.05;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    text-overflow: ellipsis;
-  }
-
-  .monopoly-cell.is-los .monopoly-cell-label,
-  .monopoly-cell.is-kupon .monopoly-cell-label,
-  .monopoly-cell.is-chest .monopoly-cell-label {
-    font-size: clamp(0.78rem, 4vw, 1.1rem);
-    -webkit-line-clamp: 1;
-    letter-spacing: 0.04em;
+    border-radius: 8px;
   }
 
   .monopoly-hud-cash-value {
