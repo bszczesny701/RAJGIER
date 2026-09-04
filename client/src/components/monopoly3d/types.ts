@@ -8,6 +8,10 @@ export interface MonopolySpace {
   rent: number[] | null;
   houseCost: number | null;
   ownerId: string | null;
+  houses: number;
+  canBuild?: boolean;
+  canSellHouse?: boolean;
+  sellRefund?: number | null;
 }
 
 export interface MonopolyToken {

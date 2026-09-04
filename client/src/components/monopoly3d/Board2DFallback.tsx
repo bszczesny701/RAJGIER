@@ -41,6 +41,14 @@ export default function Board2DFallback({
                 title="Właściciel"
               />
             )}
+            {(space.houses || 0) > 0 && (
+              <span
+                className={`monopoly-houses-badge${(space.houses || 0) >= 5 ? ' is-hotel' : ''}`}
+                title={(space.houses || 0) >= 5 ? 'Hotel' : `${space.houses} dom(y)`}
+              >
+                {(space.houses || 0) >= 5 ? 'H' : space.houses}
+              </span>
+            )}
             <div className="monopoly-tokens">
               {tokensHere.map((t) => (
                 <span

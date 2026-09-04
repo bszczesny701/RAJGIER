@@ -15,20 +15,32 @@ const GROUP_NAMES: Record<string, string> = {
   special: 'Specjalne',
 };
 
+function housesLabel(houses: number) {
+  if (houses >= 5) return 'Hotel';
+  if (houses <= 0) return 'Bez ulepszeń';
+  return `${houses} ${houses === 1 ? 'dom' : 'domy'}`;
+}
+
 export default function PropertyDeed({
   space,
   ownerName,
   onClose,
+  onBuild,
+  onSellHouse,
 }: {
   space: MonopolySpace;
   ownerName: string | null;
   onClose: () => void;
+  onBuild?: () => void;
+  onSellHouse?: () => void;
 }) {
   const color = GROUP_COLORS[space.group] || GROUP_COLORS.special;
   const isInvestment = space.type === 'investment';
   const isRail = space.type === 'rail';
   const isUtility = space.type === 'utility';
   const buyable = isInvestment || isRail || isUtility;
+  const houses = space.houses || 0;
+  const showBuildActions = isInvestment && (space.canBuild || space.canSellHouse);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -54,12 +66,18 @@ export default function PropertyDeed({
           <p className="monopoly-deed-owner">Wolna — do kupienia</p>
         )}
 
+        {isInvestment && (
+          <p className="monopoly-deed-owner">
+            Ulepszenie: <strong>{housesLabel(houses)}</strong>
+          </p>
+        )}
+
         {isInvestment && space.rent && (
           <>
             <h3 className="monopoly-deed-section">Czynsz</h3>
             <ul className="monopoly-deed-rents">
               {space.rent.map((r, i) => (
-                <li key={i}>
+                <li key={i} className={houses === i ? 'is-current' : undefined}>
                   <span>{RENT_LABELS[i] || `Poziom ${i}`}</span>
                   <strong>{r}</strong>
                 </li>
@@ -95,6 +113,27 @@ export default function PropertyDeed({
 
         {!buyable && space.type !== 'tax' && (
           <p className="monopoly-deed-meta">Pole specjalne — bez zakupu.</p>
+        )}
+
+        {showBuildActions && (
+          <div className="monopoly-build-actions">
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!space.canBuild}
+              onClick={() => onBuild?.()}
+            >
+              Buduj{space.houseCost != null ? ` (−${space.houseCost})` : ''}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={!space.canSellHouse}
+              onClick={() => onSellHouse?.()}
+            >
+              Sprzedaj{space.sellRefund != null ? ` (+${space.sellRefund})` : ''}
+            </button>
+          </div>
         )}
 
         <button type="button" className="btn btn-primary" onClick={onClose}>

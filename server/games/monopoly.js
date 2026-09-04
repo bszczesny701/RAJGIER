@@ -5,12 +5,15 @@ const {
   GO_SALARY,
   JAIL_FEE,
   STARTING_CASH,
+  MAX_HOUSES,
   getSpace,
   isBuyable,
+  groupIndexes,
 } = require('./monopolyBoard');
 const { CHANCE_CARDS, CHEST_CARDS, getCard } = require('./monopolyCards');
 
 const PIECES = ['pawn', 'car', 'hat', 'dog', 'shoe', 'boat'];
+const BUILD_PHASES = ['rolling', 'awaitEnd'];
 
 function shuffle(arr) {
   const copy = [...arr];
@@ -40,7 +43,115 @@ function checkWinner(state) {
   return false;
 }
 
+function getHouses(state, spaceIndex) {
+  return state.houses?.[spaceIndex] || 0;
+}
+
+function setHouses(state, spaceIndex, level) {
+  if (!state.houses) state.houses = {};
+  if (level <= 0) delete state.houses[spaceIndex];
+  else state.houses[spaceIndex] = level;
+}
+
+function ownsFullGroup(state, playerId, group) {
+  const idxs = groupIndexes(group);
+  if (idxs.length === 0) return false;
+  return idxs.every((i) => state.owners[i] === playerId);
+}
+
+function groupHouseLevels(state, group) {
+  return groupIndexes(group).map((i) => getHouses(state, i));
+}
+
+function canImproveEvenly(state, spaceIndex) {
+  const space = getSpace(spaceIndex);
+  if (!space || space.type !== 'investment') return false;
+  const current = getHouses(state, spaceIndex);
+  if (current >= MAX_HOUSES) return false;
+  const levels = groupHouseLevels(state, space.group);
+  const min = Math.min(...levels);
+  return current === min;
+}
+
+function canDemoteEvenly(state, spaceIndex) {
+  const space = getSpace(spaceIndex);
+  if (!space || space.type !== 'investment') return false;
+  const current = getHouses(state, spaceIndex);
+  if (current <= 0) return false;
+  const levels = groupHouseLevels(state, space.group);
+  const max = Math.max(...levels);
+  return current === max;
+}
+
+function buildCheck(state, playerId, spaceIndex) {
+  const gate = assertTurn(state, playerId, BUILD_PHASES);
+  if (!gate.ok) return gate;
+
+  const space = getSpace(spaceIndex);
+  if (!space || space.type !== 'investment') {
+    return { ok: false, reason: 'Nie można budować na tym polu' };
+  }
+  if (state.owners[spaceIndex] !== playerId) {
+    return { ok: false, reason: 'To nie Twoje pole' };
+  }
+  if (!ownsFullGroup(state, playerId, space.group)) {
+    return { ok: false, reason: 'Potrzebujesz monopolu koloru' };
+  }
+  if (!canImproveEvenly(state, spaceIndex)) {
+    return { ok: false, reason: 'Buduj równomiernie w kolorze' };
+  }
+  const cost = space.houseCost || 0;
+  if ((state.players[playerId].cash || 0) < cost) {
+    return { ok: false, reason: 'Za mało gotówki' };
+  }
+  return { ok: true, space, cost };
+}
+
+function sellCheck(state, playerId, spaceIndex) {
+  const gate = assertTurn(state, playerId, BUILD_PHASES);
+  if (!gate.ok) return gate;
+
+  const space = getSpace(spaceIndex);
+  if (!space || space.type !== 'investment') {
+    return { ok: false, reason: 'Nie ma tu budynków' };
+  }
+  if (state.owners[spaceIndex] !== playerId) {
+    return { ok: false, reason: 'To nie Twoje pole' };
+  }
+  if (!canDemoteEvenly(state, spaceIndex)) {
+    return { ok: false, reason: 'Sprzedawaj równomiernie w kolorze' };
+  }
+  const refund = Math.floor((space.houseCost || 0) / 2);
+  return { ok: true, space, refund };
+}
+
+function liquidateHouses(state, playerId) {
+  let total = 0;
+  for (const [idx, owner] of Object.entries(state.owners || {})) {
+    if (owner !== playerId) continue;
+    const i = Number(idx);
+    const level = getHouses(state, i);
+    if (level <= 0) continue;
+    const space = getSpace(i);
+    const refund = Math.floor((space?.houseCost || 0) / 2) * level;
+    total += refund;
+    setHouses(state, i, 0);
+  }
+  if (total > 0 && state.players[playerId]) {
+    state.players[playerId].cash += total;
+    pushLog(state, `Sprzedaż budynków do banku: +${total}`);
+  }
+  return total;
+}
+
+function clearHousesOnProperties(state, playerId) {
+  for (const [idx, owner] of Object.entries(state.owners || {})) {
+    if (owner === playerId) setHouses(state, Number(idx), 0);
+  }
+}
+
 function releaseProperties(state, playerId) {
+  clearHousesOnProperties(state, playerId);
   for (const [idx, owner] of Object.entries(state.owners)) {
     if (owner === playerId) {
       delete state.owners[Number(idx)];
@@ -53,6 +164,8 @@ function bankruptPlayer(state, playerId, creditorId) {
   if (p.bankrupt) return;
   p.bankrupt = true;
   p.inJail = false;
+
+  liquidateHouses(state, playerId);
 
   if (creditorId && state.players[creditorId] && !state.players[creditorId].bankrupt) {
     state.players[creditorId].cash += p.cash;
@@ -162,7 +275,13 @@ function rentDue(state, spaceIndex, diceTotal) {
   if (!ownerId || !space) return 0;
 
   if (space.type === 'investment') {
-    return space.rent[0];
+    const level = getHouses(state, spaceIndex);
+    if (level > 0) {
+      return space.rent[level] || space.rent[space.rent.length - 1] || 0;
+    }
+    const base = space.rent[0] || 0;
+    if (ownsFullGroup(state, ownerId, space.group)) return base * 2;
+    return base;
   }
   if (space.type === 'rail') {
     const n = countOwnedOfType(state, ownerId, 'rail');
@@ -336,6 +455,7 @@ function createMonopolyState(playerIds) {
     players,
     order: [...playerIds],
     owners: {},
+    houses: {},
     lastDice: null,
     pendingCard: null,
     pendingNotice: null,
@@ -497,22 +617,73 @@ function monopolyEndTurn(state, playerId) {
   return { ok: true };
 }
 
+function monopolyBuild(state, playerId, spaceIndex) {
+  const idx = Number(spaceIndex);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= BOARD.length) {
+    return { ok: false, reason: 'Nieprawidłowe pole' };
+  }
+
+  const check = buildCheck(state, playerId, idx);
+  if (!check.ok) return check;
+
+  const p = state.players[playerId];
+  p.cash -= check.cost;
+  const next = getHouses(state, idx) + 1;
+  setHouses(state, idx, next);
+  const label = next >= MAX_HOUSES ? 'hotel' : `dom (${next})`;
+  pushLog(state, `Budowa: ${check.space.name} → ${label} (−${check.cost})`);
+  return { ok: true };
+}
+
+function monopolySellHouse(state, playerId, spaceIndex) {
+  const idx = Number(spaceIndex);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= BOARD.length) {
+    return { ok: false, reason: 'Nieprawidłowe pole' };
+  }
+
+  const check = sellCheck(state, playerId, idx);
+  if (!check.ok) return check;
+
+  const p = state.players[playerId];
+  const next = getHouses(state, idx) - 1;
+  setHouses(state, idx, next);
+  p.cash += check.refund;
+  pushLog(state, `Sprzedaż budynku: ${check.space.name} (+${check.refund})`);
+  return { ok: true };
+}
+
 function getPublicMonopolyState(state, viewerId, playerNames = {}) {
   const p = state.players[viewerId];
   const buySpace = state.awaitingBuy != null ? getSpace(state.awaitingBuy) : null;
   const isMyTurn = state.currentPlayerId === viewerId && !p?.bankrupt;
+  const canManageBuildings = isMyTurn && BUILD_PHASES.includes(state.phase);
 
-  const spaces = BOARD.map((space, index) => ({
-    index,
-    type: space.type,
-    name: space.name,
-    group: space.group || 'special',
-    price: space.price || null,
-    tax: space.tax || null,
-    rent: space.rent ? [...space.rent] : null,
-    houseCost: space.houseCost || null,
-    ownerId: state.owners[index] || null,
-  }));
+  const spaces = BOARD.map((space, index) => {
+    const houses = space.type === 'investment' ? getHouses(state, index) : 0;
+    const ownedByMe = state.owners[index] === viewerId;
+    let canBuild = false;
+    let canSellHouse = false;
+    if (canManageBuildings && ownedByMe && space.type === 'investment') {
+      canBuild = buildCheck(state, viewerId, index).ok;
+      canSellHouse = sellCheck(state, viewerId, index).ok;
+    }
+
+    return {
+      index,
+      type: space.type,
+      name: space.name,
+      group: space.group || 'special',
+      price: space.price || null,
+      tax: space.tax || null,
+      rent: space.rent ? [...space.rent] : null,
+      houseCost: space.houseCost || null,
+      ownerId: state.owners[index] || null,
+      houses,
+      canBuild,
+      canSellHouse,
+      sellRefund: space.houseCost != null ? Math.floor(space.houseCost / 2) : null,
+    };
+  });
 
   const tokens = state.order.map((id) => ({
     id,
@@ -593,6 +764,8 @@ module.exports = {
   monopolyBuy,
   monopolySkipBuy,
   monopolyEndTurn,
+  monopolyBuild,
+  monopolySellHouse,
   monopolySetPiece,
   getPublicMonopolyState,
   PIECES,

@@ -59,12 +59,23 @@ const GO_SALARY = 200;
 const JAIL_FEE = 50;
 const STARTING_CASH = 1500;
 
+const MAX_HOUSES = 5; // 4 domy + hotel
+
 function getSpace(index) {
   return BOARD[index];
 }
 
 function isBuyable(space) {
   return space && (space.type === 'investment' || space.type === 'rail' || space.type === 'utility');
+}
+
+/** Indeksy pól investment w danym kolorze. */
+function groupIndexes(group) {
+  const idxs = [];
+  BOARD.forEach((space, i) => {
+    if (space.type === 'investment' && space.group === group) idxs.push(i);
+  });
+  return idxs;
 }
 
 module.exports = {
@@ -75,6 +86,8 @@ module.exports = {
   GO_SALARY,
   JAIL_FEE,
   STARTING_CASH,
+  MAX_HOUSES,
   getSpace,
   isBuyable,
+  groupIndexes,
 };

@@ -259,6 +259,26 @@
   border-radius: 50%;
 }
 
+.monopoly-houses-badge {
+  position: absolute;
+  top: 8px;
+  left: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+}
+
+.monopoly-houses-badge.is-hotel {
+  background: #dc2626;
+}
+
 .monopoly-tokens {
   margin-top: auto;
   display: flex;
@@ -655,11 +675,31 @@
 
 .monopoly-deed-rents li:last-child {
   border-bottom: none;
-  background: rgba(251, 191, 36, 0.15);
+}
+
+.monopoly-deed-rents li.is-current {
+  background: rgba(251, 191, 36, 0.28);
+  font-weight: 700;
 }
 
 .monopoly-deed .btn {
   margin-top: 12px;
+}
+
+.monopoly-build-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.monopoly-build-actions .btn {
+  margin-top: 0;
+  min-height: 44px;
+}
+
+.monopoly-build-actions .btn:disabled {
+  opacity: 0.4;
 }
 
 .monopoly-inventory {
@@ -701,7 +741,13 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.monopoly-inventory-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .monopoly-inventory-item {
@@ -719,6 +765,14 @@
   touch-action: manipulation;
 }
 
+.monopoly-inventory-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .monopoly-inventory-swatch {
   width: 14px;
   height: 14px;
@@ -727,15 +781,37 @@
 }
 
 .monopoly-inventory-name {
-  flex: 1;
   font-weight: 600;
   font-size: 0.9rem;
+}
+
+.monopoly-inventory-houses {
+  font-size: 0.72rem;
+  color: var(--m-muted);
+  letter-spacing: 0.04em;
 }
 
 .monopoly-inventory-price {
   color: var(--m-gold);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+.monopoly-inventory-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.monopoly-inv-action {
+  min-height: 42px;
+  font-size: 0.8rem;
+  padding: 8px 10px;
+}
+
+.monopoly-inv-action:disabled {
+  opacity: 0.35;
 }
 
 .monopoly-piece-icon {

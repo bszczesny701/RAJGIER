@@ -26,6 +26,7 @@ function SpaceMesh({
   const baseColor = corner ? '#fff8ea' : '#fffcf5';
   const label = shortLabel(space);
   const isJail = space.type === 'jail' || space.type === 'gotojail';
+  const houses = space.houses || 0;
 
   return (
     <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
@@ -53,6 +54,24 @@ function SpaceMesh({
         <mesh position={[CELL * 0.3, baseH + 0.06, CELL * 0.3]}>
           <sphereGeometry args={[0.09, 12, 12]} />
           <meshStandardMaterial color={ownerColor} />
+        </mesh>
+      )}
+
+      {houses > 0 && houses < 5 && (
+        <group position={[-CELL * 0.22, baseH + 0.08, CELL * 0.22]}>
+          {Array.from({ length: houses }).map((_, i) => (
+            <mesh key={i} position={[(i % 2) * 0.16, Math.floor(i / 2) * 0.12, 0]}>
+              <boxGeometry args={[0.12, 0.1, 0.12]} />
+              <meshStandardMaterial color="#16a34a" roughness={0.5} />
+            </mesh>
+          ))}
+        </group>
+      )}
+
+      {houses >= 5 && (
+        <mesh position={[-CELL * 0.18, baseH + 0.14, CELL * 0.2]}>
+          <boxGeometry args={[0.22, 0.2, 0.18]} />
+          <meshStandardMaterial color="#dc2626" roughness={0.45} />
         </mesh>
       )}
 

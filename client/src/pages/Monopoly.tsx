@@ -168,6 +168,9 @@ export default function Monopoly() {
     socket.emit(event, { sessionId, roomCode, ...extra });
   };
 
+  const emitBuild = (spaceIndex: number) => emit('monopolyBuild', { spaceIndex });
+  const emitSellHouse = (spaceIndex: number) => emit('monopolySellHouse', { spaceIndex });
+
   const handleRoll = () => {
     if (diceRolling) return;
     setDiceRolling(true);
@@ -427,25 +430,57 @@ export default function Monopoly() {
               <p className="monopoly-focus-meta">Brak kart — kup inwestycje na planszy.</p>
             ) : (
               <ul className="monopoly-inventory-list">
-                {myProperties.map((s) => (
-                  <li key={s.index}>
-                    <button
-                      type="button"
-                      className="monopoly-inventory-item"
-                      onClick={() => {
-                        setInventoryOpen(false);
-                        setDeedSpace(s);
-                      }}
-                    >
-                      <span
-                        className="monopoly-inventory-swatch"
-                        style={{ background: GROUP_COLORS[s.group] || '#888' }}
-                      />
-                      <span className="monopoly-inventory-name">{s.name}</span>
-                      <span className="monopoly-inventory-price">{s.price ?? '—'}</span>
-                    </button>
-                  </li>
-                ))}
+                {myProperties.map((s) => {
+                  const live = state.spaces[s.index] || s;
+                  const houses = live.houses || 0;
+                  const isInvestment = live.type === 'investment';
+                  return (
+                    <li key={live.index} className="monopoly-inventory-row">
+                      <button
+                        type="button"
+                        className="monopoly-inventory-item"
+                        onClick={() => {
+                          setInventoryOpen(false);
+                          setDeedSpace(live);
+                        }}
+                      >
+                        <span
+                          className="monopoly-inventory-swatch"
+                          style={{ background: GROUP_COLORS[live.group] || '#888' }}
+                        />
+                        <span className="monopoly-inventory-main">
+                          <span className="monopoly-inventory-name">{live.name}</span>
+                          {isInvestment && (
+                            <span className="monopoly-inventory-houses">
+                              {houses >= 5 ? 'Hotel' : houses > 0 ? `${'●'.repeat(houses)}` : 'Bez domów'}
+                            </span>
+                          )}
+                        </span>
+                        <span className="monopoly-inventory-price">{live.price ?? '—'}</span>
+                      </button>
+                      {isInvestment && (
+                        <div className="monopoly-inventory-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary monopoly-inv-action"
+                            disabled={!live.canBuild}
+                            onClick={() => emitBuild(live.index)}
+                          >
+                            Buduj{live.houseCost != null ? ` ${live.houseCost}` : ''}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary monopoly-inv-action"
+                            disabled={!live.canSellHouse}
+                            onClick={() => emitSellHouse(live.index)}
+                          >
+                            Sprzedaj{live.sellRefund != null ? ` ${live.sellRefund}` : ''}
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -454,13 +489,15 @@ export default function Monopoly() {
 
       {deedSpace && state && (
         <PropertyDeed
-          space={deedSpace}
+          space={state.spaces[deedSpace.index] || deedSpace}
           ownerName={
-            deedSpace.ownerId
-              ? state.tokens.find((t) => t.id === deedSpace.ownerId)?.name || null
+            (state.spaces[deedSpace.index] || deedSpace).ownerId
+              ? state.tokens.find((t) => t.id === (state.spaces[deedSpace.index] || deedSpace).ownerId)?.name || null
               : null
           }
           onClose={() => setDeedSpace(null)}
+          onBuild={() => emitBuild(deedSpace.index)}
+          onSellHouse={() => emitSellHouse(deedSpace.index)}
         />
       )}
 
