@@ -220,13 +220,20 @@ export default function Board2DFallback({
         }}
       >
         <div className="monopoly-center" aria-hidden>
-          <div className="monopoly-center-decks">
-            <div className="monopoly-deck monopoly-deck-los">
-              <span>LOS</span>
-            </div>
-            <div className="monopoly-deck monopoly-deck-chest">
-              <span>KASA</span>
-            </div>
+          <div className="monopoly-deck monopoly-deck-los">
+            <span>LOS</span>
+          </div>
+          <div className="monopoly-center-brand">
+            <p className="monopoly-center-title">MONOPOLY</p>
+            <img
+              className="monopoly-center-mascot"
+              src="/monopoly-mascot.png"
+              alt=""
+              draggable={false}
+            />
+          </div>
+          <div className="monopoly-deck monopoly-deck-chest">
+            <span>KASA</span>
           </div>
         </div>
         {spaces.map((space) => {

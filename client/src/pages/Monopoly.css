@@ -441,17 +441,57 @@
   grid-row: 2 / 11;
   grid-column: 2 / 11;
   display: grid;
-  place-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-items: center;
+  gap: clamp(6px, 2cqi, 18px);
+  padding: clamp(4px, 1.5cqi, 12px);
   pointer-events: none;
   z-index: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
-.monopoly-center-decks {
+.monopoly-center-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(10px, 3vw, 22px);
-  transform: rotate(-18deg);
+  gap: clamp(2px, 0.8cqi, 8px);
+  min-width: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.monopoly-center-title {
+  margin: 0;
+  font-size: clamp(0.85rem, 4.2cqi, 1.85rem);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #fbbf24;
+  text-shadow:
+    0 1px 0 #7f1d1d,
+    0 2px 0 #450a0a,
+    0 3px 8px rgba(0, 0, 0, 0.45);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.monopoly-center-mascot {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 42cqi);
+  max-height: min(58%, 52cqi);
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.monopoly-center .monopoly-deck {
+  flex-shrink: 0;
+  transform: none;
 }
 
 .monopoly-deck {

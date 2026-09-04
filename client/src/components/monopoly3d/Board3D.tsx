@@ -1,5 +1,5 @@
 import { RoundedBox } from '@react-three/drei';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import type { MonopolySpace } from './types';
 import {
@@ -211,6 +211,46 @@ function DeckLabel({ text, color, stroke }: { text: string; color: string; strok
   );
 }
 
+function CenterBrand3D() {
+  const titleMap = useMemo(
+    () => makeLabelTexture('MONOPOLY', '#fbbf24', { bold: true, stroke: '#7f1d1d' }),
+    []
+  );
+  const [mascot, setMascot] = useState<THREE.Texture | null>(null);
+
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+    let alive = true;
+    loader.load('/monopoly-mascot.png', (tex) => {
+      if (!alive) return;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      tex.needsUpdate = true;
+      setMascot(tex);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <group>
+      {titleMap && (
+        <mesh position={[0, 0.14, -1.15]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[3.6, 0.85]} />
+          <meshBasicMaterial map={titleMap} transparent depthWrite={false} />
+        </mesh>
+      )}
+      {mascot && (
+        <mesh position={[0, 0.14, 0.55]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[2.4, 3.0]} />
+          <meshBasicMaterial map={mascot} transparent depthWrite={false} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
 export default function Board3D({
   spaces,
   focusIndex,
@@ -238,18 +278,20 @@ export default function Board3D({
         <meshStandardMaterial color="#2a2a2e" roughness={0.7} />
       </mesh>
 
-      <group position={[-0.7, 0.08, 0.2]}>
+      <group position={[-2.35, 0.08, 0]}>
         <RoundedBox args={[1.15, 0.14, 1.55]} radius={0.06} position={[0, 0.07, 0]}>
           <meshStandardMaterial color="#2563eb" roughness={0.3} metalness={0.2} />
         </RoundedBox>
         <DeckLabel text="LOS" color="#ffffff" stroke="#0f172a" />
       </group>
-      <group position={[0.7, 0.08, -0.2]}>
+      <group position={[2.35, 0.08, 0]}>
         <RoundedBox args={[1.15, 0.14, 1.55]} radius={0.06} position={[0, 0.07, 0]}>
           <meshStandardMaterial color="#f59e0b" roughness={0.3} metalness={0.15} />
         </RoundedBox>
         <DeckLabel text="KASA" color="#1a1a1a" stroke="#ffffff" />
       </group>
+
+      <CenterBrand3D />
 
       {cells.map((space) => (
         <SpaceMesh
