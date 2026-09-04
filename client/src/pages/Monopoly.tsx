@@ -477,7 +477,7 @@ export default function Monopoly() {
                         {t.name}
                         {t.id === playerId ? ' (Ty)' : ''}
                         {t.id === state.currentPlayerId ? ' · tura' : ''}
-                        {t.inJail ? ' · więzienie' : ''}
+                        {t.inJail ? ' · Kościuch' : ''}
                       </span>
                       <span className="monopoly-player-cash">{t.bankrupt ? 'OUT' : t.cash}</span>
                     </li>

@@ -243,8 +243,10 @@ export default function Board2DFallback({
           const isLos = space.type === 'chance';
           const isChest = space.type === 'chest';
           const isKupon = space.type === 'tax';
+          const isKosciuch = space.type === 'jail' || space.type === 'gotojail';
+          const isGo = space.type === 'go';
           const bar = GROUP_COLORS[space.group] || GROUP_COLORS.special;
-          const hideBar = isLos || isChest || isKupon;
+          const hideBar = isLos || isChest || isKupon || isKosciuch;
 
           return (
             <div
@@ -252,7 +254,7 @@ export default function Board2DFallback({
               role="button"
               tabIndex={0}
               data-space-index={space.index}
-              className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}${space.mortgaged ? ' is-mortgaged' : ''}${isLos ? ' is-los' : ''}${isChest ? ' is-chest' : ''}${isKupon ? ' is-kupon' : ''}`}
+              className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}${space.mortgaged ? ' is-mortgaged' : ''}${isLos ? ' is-los' : ''}${isChest ? ' is-chest' : ''}${isKupon ? ' is-kupon' : ''}${isKosciuch ? ' is-kosciuch' : ''}`}
               style={{ gridRow: row + 1, gridColumn: col + 1 }}
               title={space.name}
               onClick={() => onSelectSpace?.(space.index)}
@@ -264,6 +266,9 @@ export default function Board2DFallback({
               <span className="monopoly-cell-label">{shortLabel(space)}</span>
               {space.name.startsWith('WC') && (
                 <img className="monopoly-cell-icon" src="/wc-icon.png" alt="" draggable={false} />
+              )}
+              {isGo && (
+                <img className="monopoly-cell-icon monopoly-cell-icon--go" src="/go-icon.png" alt="" draggable={false} />
               )}
               {space.ownerId && (
                 <span

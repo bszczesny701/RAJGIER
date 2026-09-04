@@ -261,10 +261,10 @@ function sendToJail(state, playerId) {
   state.pendingNotice = {
     id: `jail-${playerId}-${Date.now()}`,
     kind: 'jail',
-    title: 'Więzienie',
-    text: 'Idziesz do więzienia!',
+    title: 'Kościuch',
+    text: 'Idziesz do Kościucha!',
   };
-  pushLog(state, 'Idziesz do więzienia.');
+  pushLog(state, 'Idziesz do Kościucha.');
 }
 
 function collectGoIfPassed(state, playerId, from, to, steps) {
@@ -615,7 +615,7 @@ function monopolyRoll(state, playerId) {
 
     p.jailTurns += 1;
     if (p.jailTurns >= 3) {
-      const paid = debit(state, playerId, JAIL_FEE, null, `Kaucja ${JAIL_FEE} (3. tura w więzieniu)`);
+      const paid = debit(state, playerId, JAIL_FEE, null, `Kaucja ${JAIL_FEE} (3. tura w Kościuchu)`);
       if (!paid || state.players[playerId].bankrupt) return { ok: true };
       p.inJail = false;
       p.jailTurns = 0;
@@ -625,7 +625,7 @@ function monopolyRoll(state, playerId) {
       return { ok: true };
     }
 
-    pushLog(state, 'Brak szóstki — zostajesz w więzieniu.');
+    pushLog(state, 'Brak szóstki — zostajesz w Kościuchu.');
     state.phase = 'awaitEnd';
     return { ok: true };
   }
@@ -654,14 +654,14 @@ function monopolyPayJail(state, playerId) {
   if (!gate.ok) return gate;
 
   const p = state.players[playerId];
-  if (!p.inJail) return { ok: false, reason: 'Nie jesteś w więzieniu' };
+  if (!p.inJail) return { ok: false, reason: 'Nie jesteś w Kościuchu' };
 
   const paid = debit(state, playerId, JAIL_FEE, null, `Kaucja ${JAIL_FEE}`);
   if (!paid || p.bankrupt) return { ok: true };
 
   p.inJail = false;
   p.jailTurns = 0;
-  pushLog(state, 'Wychodzisz z więzienia — rzuć kostką.');
+  pushLog(state, 'Wychodzisz z Kościucha — rzuć kostką.');
   state.phase = 'rolling';
   return { ok: true };
 }
@@ -1057,8 +1057,8 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
       pendingNotice = {
         id: n.id,
         kind: 'jail',
-        title: n.title || 'Więzienie',
-        text: n.text || 'Idziesz do więzienia!',
+        title: n.title || 'Kościuch',
+        text: n.text || 'Idziesz do Kościucha!',
       };
     } else {
       const payerName = playerNames[n.payerId] || 'Gracz';

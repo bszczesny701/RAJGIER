@@ -547,6 +547,33 @@
   -webkit-line-clamp: unset;
 }
 
+.monopoly-cell.is-kosciuch {
+  background: linear-gradient(160deg, #4ade80, #16a34a) !important;
+  color: #fff;
+  justify-content: center;
+  align-items: center;
+  border-color: #0f172a !important;
+}
+
+.monopoly-cell.is-kosciuch .monopoly-cell-bar {
+  display: none;
+}
+
+.monopoly-cell.is-kosciuch .monopoly-cell-label {
+  color: #fff !important;
+  font-size: clamp(0.55rem, 2.1cqi, 0.92rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  margin-top: 0;
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
 .monopoly-cell.is-chest {
   background: linear-gradient(160deg, #fbbf24, #f59e0b) !important;
   border-color: #0f172a !important;
@@ -867,6 +894,14 @@
   -webkit-user-drag: none;
   opacity: 0.92;
   flex-shrink: 0;
+}
+
+.monopoly-cell-icon--go {
+  width: clamp(22px, 7cqi, 48px);
+  height: clamp(22px, 7cqi, 48px);
+  margin: 2px auto 4px;
+  opacity: 1;
+  border-radius: 4px;
 }
 
 .monopoly-owner-dot {
@@ -1232,6 +1267,7 @@
   }
 
   .monopoly-cell.is-los .monopoly-cell-label,
+  .monopoly-cell.is-kosciuch .monopoly-cell-label,
   .monopoly-cell.is-kupon .monopoly-cell-label,
   .monopoly-cell.is-chest .monopoly-cell-label {
     font-size: clamp(0.72rem, 3.2cqi, 1.2rem);

@@ -72,6 +72,30 @@ function WcIcon3D({ y }: { y: number }) {
   );
 }
 
+function GoIcon3D({ y }: { y: number }) {
+  const [map, setMap] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    const loader = new THREE.TextureLoader();
+    let alive = true;
+    loader.load('/go-icon.png', (tex) => {
+      if (!alive) return;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.needsUpdate = true;
+      setMap(tex);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!map) return null;
+  return (
+    <mesh position={[0, y, 0.18]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[0.72, 0.72]} />
+      <meshBasicMaterial map={map} transparent depthWrite={false} />
+    </mesh>
+  );
+}
+
 function CellLabel({
   text,
   color,
@@ -116,26 +140,29 @@ function SpaceMesh({
   const baseH = corner ? 0.24 : 0.16;
   const strip = GROUP_COLORS[space.group] || GROUP_COLORS.special;
   const label = shortLabel(space);
-  const isJail = space.type === 'jail' || space.type === 'gotojail';
+  const isKosciuch = space.type === 'jail' || space.type === 'gotojail';
   const houses = space.houses || 0;
   const isLos = space.type === 'chance';
   const isChest = space.type === 'chest';
   const isKupon = space.type === 'tax';
-  const specialFill = isLos || isChest || isKupon;
+  const isGo = space.type === 'go';
+  const specialFill = isLos || isChest || isKupon || isKosciuch;
 
   const cellColor = isLos
     ? '#2563eb'
-    : isChest
-      ? '#f59e0b'
-      : isKupon
-        ? '#dc2626'
-        : corner
-          ? '#fff6e0'
-          : focused
-            ? '#ffe8a3'
-            : '#fffdf7';
-  const labelColor = isLos || isKupon ? '#ffffff' : isChest ? '#1a1a1a' : '#1a1208';
-  const labelStroke = isLos || isKupon ? '#0f172a' : isChest ? '#ffffff' : undefined;
+    : isKosciuch
+      ? '#16a34a'
+      : isChest
+        ? '#f59e0b'
+        : isKupon
+          ? '#dc2626'
+          : corner
+            ? '#fff6e0'
+            : focused
+              ? '#ffe8a3'
+              : '#fffdf7';
+  const labelColor = isLos || isKupon || isKosciuch ? '#ffffff' : isChest ? '#1a1a1a' : '#1a1208';
+  const labelStroke = isLos || isKupon || isKosciuch ? '#0f172a' : isChest ? '#ffffff' : undefined;
 
   return (
     <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
@@ -169,6 +196,7 @@ function SpaceMesh({
       />
 
       {space.name.startsWith('WC') && <WcIcon3D y={baseH + 0.05} />}
+      {isGo && <GoIcon3D y={baseH + 0.05} />}
 
       {ownerColor && (
         <mesh position={[CELL * 0.3, baseH + 0.07, CELL * 0.3]}>
@@ -207,17 +235,6 @@ function SpaceMesh({
           <ringGeometry args={[CELL * 0.36, CELL * 0.48, 28]} />
           <meshBasicMaterial color="#ef4444" transparent opacity={0.8} />
         </mesh>
-      )}
-
-      {isJail && (
-        <group position={[0, baseH + 0.12, 0]}>
-          {[-0.18, 0, 0.18].map((ox) => (
-            <mesh key={ox} position={[ox, 0.12, 0]}>
-              <boxGeometry args={[0.04, 0.28, 0.04]} />
-              <meshStandardMaterial color="#374151" metalness={0.45} roughness={0.25} />
-            </mesh>
-          ))}
-        </group>
       )}
     </group>
   );

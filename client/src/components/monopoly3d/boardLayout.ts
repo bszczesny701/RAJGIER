@@ -41,18 +41,18 @@ export const TOKEN_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f
 
 export function shortLabel(space: { type: string; name: string; tax: number | null }): string {
   if (space.type === 'go') return 'START';
-  if (space.type === 'jail') return 'Więz.';
+  if (space.type === 'jail') return 'Kościuch';
   if (space.type === 'parking') return 'Park';
-  if (space.type === 'gotojail') return 'Więz!';
+  if (space.type === 'gotojail') return 'Kościuch!';
   if (space.type === 'chance') return 'LOS';
   if (space.type === 'chest') return 'Kasa';
   if (space.type === 'tax') return 'KUPON';
   if (space.type === 'rail') {
-    if (space.name.includes('Główny')) return 'Gł.';
-    if (space.name.includes('Wschod')) return 'Wsch.';
-    if (space.name.includes('Zachod')) return 'Zach.';
-    if (space.name.includes('Central')) return 'Cent.';
-    return 'Dw.';
+    if (space.name.includes('PRUSZK')) return 'Pruszk.';
+    if (space.name.includes('MICHAŁ') || space.name.includes('MICHAL')) return 'Michał.';
+    if (space.name.includes('TWORK')) return 'Tworki';
+    if (space.name.includes('MALICH')) return 'Malichy';
+    return 'WKD';
   }
   if (space.type === 'utility') {
     if (space.name.includes('Elektro')) return 'El.';
@@ -64,6 +64,9 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   if (space.name === 'Polna') return 'Polna';
   if (space.name.includes('Nowa Stacja')) return 'Nowa St.';
   if (space.name.includes('WPR')) return 'WPR';
+  if (space.name.includes('Costa')) return 'Costa';
+  if (space.name === 'Empik') return 'Empik';
+  if (space.name.includes('Van Graaf') || space.name.includes('Van')) return 'Van Gr.';
   const first = space.name.split(/\s+/)[0] || space.name;
   return first.length <= 7 ? first : `${first.slice(0, 6)}.`;
 }
