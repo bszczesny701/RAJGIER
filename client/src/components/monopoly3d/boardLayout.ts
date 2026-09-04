@@ -42,7 +42,7 @@ export const TOKEN_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f
 export function shortLabel(space: { type: string; name: string; tax: number | null }): string {
   if (space.type === 'go') return 'START';
   if (space.type === 'jail') return 'Kościuch';
-  if (space.type === 'parking') return 'Park';
+  if (space.type === 'parking') return 'Anielin';
   if (space.type === 'gotojail') return 'Kościuch!';
   if (space.type === 'chance') return 'LOS';
   if (space.type === 'chest') return 'Kasa';
@@ -62,13 +62,21 @@ export function shortLabel(space: { type: string; name: string; tax: number | nu
   if (space.name.startsWith('WC')) return 'WC';
   if (space.name.startsWith('Bagno')) return 'Bagno';
   if (space.name === 'Polna') return 'Polna';
+  if (space.name.includes('Nowa Stacja') && space.name.includes('Zdrofit')) return 'Zd. NS';
   if (space.name.includes('Nowa Stacja')) return 'Nowa St.';
   if (space.name.includes('WPR')) return 'WPR';
   if (space.name.includes('Costa')) return 'Costa';
   if (space.name === 'Empik') return 'Empik';
   if (space.name.includes('Van Graaf') || space.name.includes('Van')) return 'Van Gr.';
+  if (space.name.includes('Civitas')) return 'Civitas';
+  if (space.name.includes('Uniwersytet Warszawski')) return 'UW';
+  if (space.name.includes('Politechnika')) return 'PW';
+  if (space.name.includes('Smak')) return 'Smak';
+  if (space.name.includes('Złote')) return 'Zł. Łuki';
+  if (space.name.includes('Zdrofit Leszcz')) return 'Zdrofit';
+  if (space.name.includes('Kałęczyn') || space.name.includes('Kaleczyn')) return 'Kałęczyn';
   const first = space.name.split(/\s+/)[0] || space.name;
-  return first.length <= 7 ? first : `${first.slice(0, 6)}.`;
+  return first.length <= 8 ? first : `${first.slice(0, 7)}.`;
 }
 
 export const RENT_LABELS = ['Bez ulepszeń', '1 dom', '2 domy', '3 domy', '4 domy', 'Hotel'];

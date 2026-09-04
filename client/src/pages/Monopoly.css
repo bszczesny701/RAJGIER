@@ -553,6 +553,7 @@
   justify-content: center;
   align-items: center;
   border-color: #0f172a !important;
+  overflow: hidden;
 }
 
 .monopoly-cell.is-kosciuch .monopoly-cell-bar {
@@ -560,18 +561,29 @@
 }
 
 .monopoly-cell.is-kosciuch .monopoly-cell-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: max-content;
+  max-width: none;
+  margin: 0;
+  padding: 0 2px;
   color: #fff !important;
-  font-size: clamp(0.55rem, 2.1cqi, 0.92rem);
+  font-size: clamp(0.72rem, 3.4cqi, 1.15rem);
   font-weight: 900;
-  letter-spacing: 0.04em;
-  margin-top: 0;
+  letter-spacing: 0.06em;
+  line-height: 1;
   text-align: center;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   display: block;
   -webkit-line-clamp: unset;
+  transform: translate(-50%, -50%) rotate(-38deg);
+  transform-origin: center center;
+  pointer-events: none;
 }
 
 .monopoly-cell.is-chest {
@@ -1267,7 +1279,6 @@
   }
 
   .monopoly-cell.is-los .monopoly-cell-label,
-  .monopoly-cell.is-kosciuch .monopoly-cell-label,
   .monopoly-cell.is-kupon .monopoly-cell-label,
   .monopoly-cell.is-chest .monopoly-cell-label {
     font-size: clamp(0.72rem, 3.2cqi, 1.2rem);
@@ -1275,6 +1286,16 @@
     -webkit-line-clamp: 1;
     white-space: nowrap;
     display: block;
+  }
+
+  .monopoly-cell.is-kosciuch .monopoly-cell-label {
+    font-size: clamp(0.78rem, 3.8cqi, 1.25rem);
+    font-size: clamp(0.78rem, 3.8cqmin, 1.25rem);
+    letter-spacing: 0.05em;
+    transform: translate(-50%, -50%) rotate(-42deg);
+    -webkit-line-clamp: unset;
+    white-space: nowrap;
+    overflow: visible;
   }
 
   .monopoly-deck {

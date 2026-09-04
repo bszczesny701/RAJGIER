@@ -103,6 +103,7 @@ function CellLabel({
   bold,
   stroke,
   wide,
+  slant,
 }: {
   text: string;
   color: string;
@@ -110,16 +111,18 @@ function CellLabel({
   bold?: boolean;
   stroke?: string;
   wide?: boolean;
+  slant?: boolean;
 }) {
   const map = useMemo(
     () => makeLabelTexture(text, color, { bold, stroke }),
     [text, color, bold, stroke]
   );
   if (!map) return null;
-  const w = wide ? CELL * 0.88 : CELL * 0.84;
-  const h = wide ? CELL * 0.48 : CELL * 0.42;
+  const w = slant ? CELL * 1.2 : wide ? CELL * 0.88 : CELL * 0.84;
+  const h = slant ? CELL * 0.42 : wide ? CELL * 0.48 : CELL * 0.42;
+  const rotZ = slant ? -0.7 : 0;
   return (
-    <mesh position={[0, y, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh position={[0, y, 0.02]} rotation={[-Math.PI / 2, 0, rotZ]}>
       <planeGeometry args={[w, h]} />
       <meshBasicMaterial map={map} transparent depthWrite={false} />
     </mesh>
@@ -192,7 +195,8 @@ function SpaceMesh({
         y={baseH + 0.06}
         bold={specialFill}
         stroke={labelStroke}
-        wide={specialFill}
+        wide={specialFill && !isKosciuch}
+        slant={isKosciuch}
       />
 
       {space.name.startsWith('WC') && <WcIcon3D y={baseH + 0.05} />}
