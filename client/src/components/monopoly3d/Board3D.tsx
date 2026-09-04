@@ -11,8 +11,8 @@ import {
   shortLabel,
 } from './boardLayout';
 
-/** Napisy bez drei Text (CDN font = czarny ekran / zawieszenie na PWA). */
-function makeLabelTexture(text: string, color: string, bold = false) {
+/** Lokalne napisy — bez drei Text (ładowanie fontu z CDN wiesza 3D na telefonie). */
+function makeLabelTexture(text: string, color: string) {
   const canvas = document.createElement('canvas');
   canvas.width = 256;
   canvas.height = 128;
@@ -20,38 +20,23 @@ function makeLabelTexture(text: string, color: string, bold = false) {
   if (!ctx) return null;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = color;
-  ctx.font = `${bold ? 800 : 700} 48px system-ui, Segoe UI, sans-serif`;
+  ctx.font = '800 52px system-ui, Segoe UI, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const lines = text.split('\n');
-  const lineH = lines.length > 1 ? 44 : 48;
-  const startY = canvas.height / 2 - ((lines.length - 1) * lineH) / 2;
-  lines.forEach((line, i) => {
-    ctx.fillText(line, canvas.width / 2, startY + i * lineH, canvas.width - 16);
-  });
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width - 12);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   return tex;
 }
 
-function CellLabel({
-  text,
-  color,
-  y,
-  bold,
-}: {
-  text: string;
-  color: string;
-  y: number;
-  bold?: boolean;
-}) {
-  const texture = useMemo(() => makeLabelTexture(text, color, bold), [text, color, bold]);
-  if (!texture) return null;
+function CellLabel({ text, color, y }: { text: string; color: string; y: number }) {
+  const map = useMemo(() => makeLabelTexture(text, color), [text, color]);
+  if (!map) return null;
   return (
     <mesh position={[0, y, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[CELL * 0.78, CELL * 0.38]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+      <planeGeometry args={[CELL * 0.8, CELL * 0.4]} />
+      <meshBasicMaterial map={map} transparent depthWrite={false} />
     </mesh>
   );
 }
@@ -69,11 +54,11 @@ function SpaceMesh({
   const corner = isCorner(space.index);
   const baseH = corner ? 0.22 : 0.14;
   const strip = GROUP_COLORS[space.group] || GROUP_COLORS.special;
-  const houses = space.houses || 0;
+  const label = shortLabel(space);
   const isJail = space.type === 'jail' || space.type === 'gotojail';
+  const houses = space.houses || 0;
   const isLos = space.type === 'chance';
   const isChest = space.type === 'chest';
-  const label = shortLabel(space);
   const cellColor = isLos
     ? '#1d4ed8'
     : isChest
@@ -83,7 +68,7 @@ function SpaceMesh({
         : focused
           ? '#fff1c2'
           : '#fffcf5';
-  const labelColor = isLos ? '#ffffff' : isChest ? '#111111' : '#111111';
+  const labelColor = isLos || isChest ? (isLos ? '#ffffff' : '#111111') : '#111111';
 
   return (
     <group position={[x, 0, z]} userData={{ spaceIndex: space.index }}>
@@ -103,7 +88,7 @@ function SpaceMesh({
         </mesh>
       )}
 
-      <CellLabel text={label} color={labelColor} y={baseH + 0.04} bold={isLos || isChest} />
+      <CellLabel text={label} color={labelColor} y={baseH + 0.05} />
 
       {ownerColor && (
         <mesh position={[CELL * 0.3, baseH + 0.06, CELL * 0.3]}>
@@ -159,12 +144,12 @@ function SpaceMesh({
 }
 
 function DeckLabel({ text, color }: { text: string; color: string }) {
-  const texture = useMemo(() => makeLabelTexture(text, color, true), [text, color]);
-  if (!texture) return null;
+  const map = useMemo(() => makeLabelTexture(text, color), [text, color]);
+  if (!map) return null;
   return (
     <mesh position={[0, 0.14, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[0.9, 0.45]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} />
+      <planeGeometry args={[0.95, 0.48]} />
+      <meshBasicMaterial map={map} transparent depthWrite={false} />
     </mesh>
   );
 }

@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import Board3D from './Board3D';
 import Token3D from './Token3D';
 import type { MonopolyState } from './types';
-import { BOARD_SPAN, TOKEN_COLORS } from './boardLayout';
+import { TOKEN_COLORS } from './boardLayout';
 
 const TAP_PX = 10;
 
@@ -32,6 +32,7 @@ function forceReleaseControls(controls: unknown) {
   if (c._pointerPositions) {
     for (const key of Object.keys(c._pointerPositions)) delete c._pointerPositions[key];
   }
+  // OrbitControls STATE.NONE === -1
   if (typeof c.state === 'number') c.state = -1;
 }
 
@@ -53,34 +54,6 @@ function ControlsSafetyNet() {
   return null;
 }
 
-/** Dopasuj zoom ortograficzny do rozmiaru canvas — bez tego na telefonie widać czarny pusty ekran. */
-function FitBoardCamera() {
-  const { camera, size, controls, invalidate } = useThree();
-
-  useEffect(() => {
-    if (!(camera instanceof THREE.OrthographicCamera)) return;
-    if (size.width < 2 || size.height < 2) return;
-
-    const span = BOARD_SPAN * 1.25;
-    const zoom = Math.min(size.width, size.height) / span;
-    camera.zoom = Math.max(18, Math.min(90, zoom));
-    camera.position.set(11, 13, 11);
-    camera.near = 0.1;
-    camera.far = 120;
-    camera.lookAt(0, 0, 0);
-    camera.updateProjectionMatrix();
-
-    const c = controls as { target?: THREE.Vector3; update?: () => void } | null;
-    if (c?.target) {
-      c.target.set(0, 0, 0);
-      c.update?.();
-    }
-    invalidate();
-  }, [camera, size.width, size.height, controls, invalidate]);
-
-  return null;
-}
-
 /** Tap → pole bez handlerów R3F na meshach (nie kradną gestów MapControls). */
 function SpaceTapSelect({ onSelect }: { onSelect?: (index: number) => void }) {
   const { gl, camera, scene, controls } = useThree();
@@ -95,6 +68,7 @@ function SpaceTapSelect({ onSelect }: { onSelect?: (index: number) => void }) {
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
+      // Capture przed MapControls: zdejmij zombie-drag, potem sterowanie dostaje czysty gest.
       if (e.isPrimary) forceReleaseControls(controls);
       down.current = { x: e.clientX, y: e.clientY };
     };
@@ -176,22 +150,32 @@ function SceneContent({
 
   return (
     <>
-      <color attach="background" args={['#1a1a1a']} />
-      <ambientLight intensity={0.85} />
-      <directionalLight intensity={0.9} position={[8, 14, 6]} />
-      <hemisphereLight args={['#f5f5f5', '#222222', 0.45]} />
+      <color attach="background" args={['#0a0a0b']} />
+      <ambientLight intensity={0.65} />
+      <directionalLight
+        castShadow
+        intensity={1.0}
+        position={[8, 14, 6]}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-near={1}
+        shadow-camera-far={40}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
+        shadow-camera-bottom={-12}
+      />
+      <hemisphereLight args={['#f5f5f5', '#111111', 0.35]} />
 
-      <OrthographicCamera makeDefault position={[11, 13, 11]} zoom={42} near={0.1} far={120} />
+      <OrthographicCamera makeDefault position={[10, 12, 10]} zoom={42} near={0.1} far={80} />
       <MapControls
         makeDefault
         enableRotate={false}
         enableDamping={false}
-        minZoom={16}
-        maxZoom={95}
+        minZoom={28}
+        maxZoom={70}
         screenSpacePanning
-        target={[0, 0, 0]}
       />
-      <FitBoardCamera />
       <ControlsSafetyNet />
       <SpaceTapSelect onSelect={onSelectSpace} />
 
@@ -220,7 +204,7 @@ export function supportsWebGL(): boolean {
   try {
     const canvas = document.createElement('canvas');
     return !!(
-      canvas.getContext('webgl', { failIfMajorPerformanceCaveat: false }) ||
+      canvas.getContext('webgl') ||
       canvas.getContext('experimental-webgl') ||
       canvas.getContext('webgl2')
     );
@@ -263,36 +247,13 @@ function WebGlContextGuard({ onLost }: { onLost: () => void }) {
   return null;
 }
 
-function SceneReadySignal({
-  onReady,
-  onBadSize,
-}: {
-  onReady: () => void;
-  onBadSize: () => void;
-}) {
-  const { size, gl } = useThree();
-
+function SceneReadySignal({ onReady }: { onReady: () => void }) {
   useEffect(() => {
-    let frames = 0;
-    let raf = 0;
-    const tick = () => {
-      frames += 1;
-      const w = gl.domElement.clientWidth || size.width;
-      const h = gl.domElement.clientHeight || size.height;
-      if (w >= 8 && h >= 8) {
-        onReady();
-        return;
-      }
-      if (frames > 45) {
-        onBadSize();
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [gl, size.width, size.height, onReady, onBadSize]);
-
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => onReady());
+    });
+    return () => cancelAnimationFrame(id);
+  }, [onReady]);
   return null;
 }
 
@@ -313,7 +274,6 @@ export default function MonopolyScene({
   onSelectSpace?: (index: number) => void;
   onFallbackTo2D?: () => void;
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
   const [glReady, setGlReady] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -328,11 +288,14 @@ export default function MonopolyScene({
     [onFallbackTo2D]
   );
 
-  const markSceneReady = useMemo(() => () => setSceneReady(true), []);
+  const markSceneReady = useMemo(
+    () => () => setSceneReady(true),
+    []
+  );
 
   useEffect(() => {
     if (failed || ready) return;
-    const t = window.setTimeout(() => fail(), 4000);
+    const t = window.setTimeout(() => fail(), 8000);
     return () => window.clearTimeout(t);
   }, [failed, ready, fail]);
 
@@ -342,14 +305,13 @@ export default function MonopolyScene({
 
   return (
     <SceneErrorBoundary fallback={fallback} onError={fail}>
-      <div ref={wrapRef} className="monopoly-canvas" style={{ position: 'relative' }}>
+      <div className="monopoly-canvas" style={{ position: 'relative' }}>
         {!ready && (
           <div className="monopoly-canvas-placeholder" aria-hidden>
             {fallback}
           </div>
         )}
         <Canvas
-          /* Cienie na mobile często dają czarny ekran / context lost */
           shadows={false}
           dpr={1}
           frameloop="always"
@@ -357,38 +319,23 @@ export default function MonopolyScene({
             opacity: ready ? 1 : 0,
             position: 'absolute',
             inset: 0,
-            width: '100%',
-            height: '100%',
             zIndex: ready ? 2 : 0,
             pointerEvents: ready ? 'auto' : 'none',
-            background: '#1a1a1a',
           }}
           gl={{
             antialias: false,
             powerPreference: 'default',
             alpha: false,
             failIfMajorPerformanceCaveat: false,
-            preserveDrawingBuffer: false,
           }}
-          onCreated={({ gl, camera }) => {
-            gl.setClearColor('#1a1a1a');
-            gl.setPixelRatio(1);
-            if (camera instanceof THREE.OrthographicCamera) {
-              camera.position.set(11, 13, 11);
-              camera.lookAt(0, 0, 0);
-              camera.updateProjectionMatrix();
-            }
-            const parent = wrapRef.current;
-            if (parent && (parent.clientWidth < 8 || parent.clientHeight < 8)) {
-              fail();
-              return;
-            }
+          onCreated={({ gl }) => {
+            gl.setClearColor('#0a0a0b');
             setGlReady(true);
           }}
         >
           <WebGlContextGuard onLost={fail} />
+          <SceneReadySignal onReady={markSceneReady} />
           <Suspense fallback={null}>
-            <SceneReadySignal onReady={markSceneReady} onBadSize={fail} />
             <SceneContent
               state={state}
               focusIndex={focusIndex}
