@@ -53,6 +53,32 @@ function setHouses(state, spaceIndex, level) {
   else state.houses[spaceIndex] = level;
 }
 
+function isMortgaged(state, spaceIndex) {
+  return !!(state.mortgaged && state.mortgaged[spaceIndex]);
+}
+
+function setMortgaged(state, spaceIndex, value) {
+  if (!state.mortgaged) state.mortgaged = {};
+  if (value) state.mortgaged[spaceIndex] = true;
+  else delete state.mortgaged[spaceIndex];
+}
+
+function mortgageValue(space) {
+  return Math.floor((space?.price || 0) / 2);
+}
+
+function unmortgageCost(space) {
+  return Math.floor(mortgageValue(space) * 1.1);
+}
+
+function groupHasHouses(state, group) {
+  return groupIndexes(group).some((i) => getHouses(state, i) > 0);
+}
+
+function groupHasMortgage(state, group) {
+  return groupIndexes(group).some((i) => isMortgaged(state, i));
+}
+
 function ownsFullGroup(state, playerId, group) {
   const idxs = groupIndexes(group);
   if (idxs.length === 0) return false;
@@ -93,6 +119,9 @@ function buildCheck(state, playerId, spaceIndex) {
   }
   if (state.owners[spaceIndex] !== playerId) {
     return { ok: false, reason: 'To nie Twoje pole' };
+  }
+  if (isMortgaged(state, spaceIndex) || groupHasMortgage(state, space.group)) {
+    return { ok: false, reason: 'Najpierw wykup zastawione pola w kolorze' };
   }
   if (!ownsFullGroup(state, playerId, space.group)) {
     return { ok: false, reason: 'Potrzebujesz monopolu koloru' };
@@ -154,7 +183,9 @@ function releaseProperties(state, playerId) {
   clearHousesOnProperties(state, playerId);
   for (const [idx, owner] of Object.entries(state.owners)) {
     if (owner === playerId) {
-      delete state.owners[Number(idx)];
+      const i = Number(idx);
+      setMortgaged(state, i, false);
+      delete state.owners[i];
     }
   }
 }
@@ -273,6 +304,7 @@ function rentDue(state, spaceIndex, diceTotal) {
   const space = getSpace(spaceIndex);
   const ownerId = state.owners[spaceIndex];
   if (!ownerId || !space) return 0;
+  if (isMortgaged(state, spaceIndex)) return 0;
 
   if (space.type === 'investment') {
     const level = getHouses(state, spaceIndex);
@@ -280,7 +312,12 @@ function rentDue(state, spaceIndex, diceTotal) {
       return space.rent[level] || space.rent[space.rent.length - 1] || 0;
     }
     const base = space.rent[0] || 0;
-    if (ownsFullGroup(state, ownerId, space.group)) return base * 2;
+    if (
+      ownsFullGroup(state, ownerId, space.group) &&
+      !groupHasMortgage(state, space.group)
+    ) {
+      return base * 2;
+    }
     return base;
   }
   if (space.type === 'rail') {
@@ -456,6 +493,7 @@ function createMonopolyState(playerIds) {
     order: [...playerIds],
     owners: {},
     houses: {},
+    mortgaged: {},
     lastDice: null,
     pendingCard: null,
     pendingNotice: null,
@@ -652,6 +690,78 @@ function monopolySellHouse(state, playerId, spaceIndex) {
   return { ok: true };
 }
 
+function mortgageCheck(state, playerId, spaceIndex) {
+  const gate = assertTurn(state, playerId, BUILD_PHASES);
+  if (!gate.ok) return gate;
+
+  const space = getSpace(spaceIndex);
+  if (!isBuyable(space)) {
+    return { ok: false, reason: 'Tego pola nie można zastawić' };
+  }
+  if (state.owners[spaceIndex] !== playerId) {
+    return { ok: false, reason: 'To nie Twoje pole' };
+  }
+  if (isMortgaged(state, spaceIndex)) {
+    return { ok: false, reason: 'Pole jest już zastawione' };
+  }
+  if (space.type === 'investment' && groupHasHouses(state, space.group)) {
+    return { ok: false, reason: 'Najpierw sprzedaj domy w tym kolorze' };
+  }
+  const amount = mortgageValue(space);
+  return { ok: true, space, amount };
+}
+
+function unmortgageCheck(state, playerId, spaceIndex) {
+  const gate = assertTurn(state, playerId, BUILD_PHASES);
+  if (!gate.ok) return gate;
+
+  const space = getSpace(spaceIndex);
+  if (!isBuyable(space)) {
+    return { ok: false, reason: 'Nieprawidłowe pole' };
+  }
+  if (state.owners[spaceIndex] !== playerId) {
+    return { ok: false, reason: 'To nie Twoje pole' };
+  }
+  if (!isMortgaged(state, spaceIndex)) {
+    return { ok: false, reason: 'Pole nie jest zastawione' };
+  }
+  const cost = unmortgageCost(space);
+  if ((state.players[playerId].cash || 0) < cost) {
+    return { ok: false, reason: 'Za mało gotówki na wykup' };
+  }
+  return { ok: true, space, cost };
+}
+
+function monopolyMortgage(state, playerId, spaceIndex) {
+  const idx = Number(spaceIndex);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= BOARD.length) {
+    return { ok: false, reason: 'Nieprawidłowe pole' };
+  }
+
+  const check = mortgageCheck(state, playerId, idx);
+  if (!check.ok) return check;
+
+  setMortgaged(state, idx, true);
+  state.players[playerId].cash += check.amount;
+  pushLog(state, `Zastaw: ${check.space.name} (+${check.amount})`);
+  return { ok: true };
+}
+
+function monopolyUnmortgage(state, playerId, spaceIndex) {
+  const idx = Number(spaceIndex);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= BOARD.length) {
+    return { ok: false, reason: 'Nieprawidłowe pole' };
+  }
+
+  const check = unmortgageCheck(state, playerId, idx);
+  if (!check.ok) return check;
+
+  state.players[playerId].cash -= check.cost;
+  setMortgaged(state, idx, false);
+  pushLog(state, `Wykup zastawu: ${check.space.name} (−${check.cost})`);
+  return { ok: true };
+}
+
 function getPublicMonopolyState(state, viewerId, playerNames = {}) {
   const p = state.players[viewerId];
   const buySpace = state.awaitingBuy != null ? getSpace(state.awaitingBuy) : null;
@@ -660,12 +770,21 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
 
   const spaces = BOARD.map((space, index) => {
     const houses = space.type === 'investment' ? getHouses(state, index) : 0;
+    const mortgaged = isMortgaged(state, index);
     const ownedByMe = state.owners[index] === viewerId;
     let canBuild = false;
     let canSellHouse = false;
-    if (canManageBuildings && ownedByMe && space.type === 'investment') {
-      canBuild = buildCheck(state, viewerId, index).ok;
-      canSellHouse = sellCheck(state, viewerId, index).ok;
+    let canMortgage = false;
+    let canUnmortgage = false;
+    if (canManageBuildings && ownedByMe) {
+      if (space.type === 'investment') {
+        canBuild = buildCheck(state, viewerId, index).ok;
+        canSellHouse = sellCheck(state, viewerId, index).ok;
+      }
+      if (isBuyable(space)) {
+        canMortgage = mortgageCheck(state, viewerId, index).ok;
+        canUnmortgage = unmortgageCheck(state, viewerId, index).ok;
+      }
     }
 
     return {
@@ -679,9 +798,14 @@ function getPublicMonopolyState(state, viewerId, playerNames = {}) {
       houseCost: space.houseCost || null,
       ownerId: state.owners[index] || null,
       houses,
+      mortgaged,
       canBuild,
       canSellHouse,
+      canMortgage,
+      canUnmortgage,
       sellRefund: space.houseCost != null ? Math.floor(space.houseCost / 2) : null,
+      mortgageAmount: space.price != null ? mortgageValue(space) : null,
+      unmortgageCost: space.price != null ? unmortgageCost(space) : null,
     };
   });
 
@@ -766,6 +890,8 @@ module.exports = {
   monopolyEndTurn,
   monopolyBuild,
   monopolySellHouse,
+  monopolyMortgage,
+  monopolyUnmortgage,
   monopolySetPiece,
   getPublicMonopolyState,
   PIECES,

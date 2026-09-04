@@ -55,6 +55,8 @@ const {
   monopolyEndTurn,
   monopolyBuild,
   monopolySellHouse,
+  monopolyMortgage,
+  monopolyUnmortgage,
   monopolySetPiece,
   getPublicMonopolyState,
 } = require('./games/monopoly');
@@ -939,6 +941,44 @@ io.on('connection', (socket) => {
     currentRoomRef.value = code;
 
     const result = monopolySellHouse(room.gameState, player.id, data.spaceIndex);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+    finishMonopolyIfWon(room);
+  });
+
+  socket.on('monopolyMortgage', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyMortgage(room.gameState, player.id, data.spaceIndex);
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitMonopolyUpdate(room);
+    finishMonopolyIfWon(room);
+  });
+
+  socket.on('monopolyUnmortgage', (payload) => {
+    const data = payload || {};
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoomRef.value, {
+      sessionId: data.sessionId,
+      roomCode: data.roomCode,
+    });
+    if (!room || !player || room.game !== 'monopoly') return;
+    currentRoomRef.value = code;
+
+    const result = monopolyUnmortgage(room.gameState, player.id, data.spaceIndex);
     if (!result.ok) {
       socket.emit('error', { message: result.reason });
       return;

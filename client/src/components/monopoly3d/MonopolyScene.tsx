@@ -1,6 +1,15 @@
 import { Canvas, useThree } from '@react-three/fiber';
 import { MapControls, OrthographicCamera } from '@react-three/drei';
-import { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import {
+  Component,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react';
 import * as THREE from 'three';
 import Board3D from './Board3D';
 import Token3D from './Token3D';
@@ -191,7 +200,7 @@ function SceneContent({
   );
 }
 
-function supportsWebGL(): boolean {
+export function supportsWebGL(): boolean {
   try {
     const canvas = document.createElement('canvas');
     return !!(
@@ -204,6 +213,40 @@ function supportsWebGL(): boolean {
   }
 }
 
+class SceneErrorBoundary extends Component<
+  { fallback: ReactNode; onError?: () => void; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    this.props.onError?.();
+  }
+
+  render() {
+    if (this.state.failed) return <>{this.props.fallback}</>;
+    return this.props.children;
+  }
+}
+
+function WebGlContextGuard({ onLost }: { onLost: () => void }) {
+  const { gl } = useThree();
+  useEffect(() => {
+    const el = gl.domElement;
+    const handler = (e: Event) => {
+      e.preventDefault();
+      onLost();
+    };
+    el.addEventListener('webglcontextlost', handler, false);
+    return () => el.removeEventListener('webglcontextlost', handler, false);
+  }, [gl, onLost]);
+  return null;
+}
+
 export default function MonopolyScene({
   state,
   focusIndex,
@@ -211,6 +254,7 @@ export default function MonopolyScene({
   colorById,
   fallback,
   onSelectSpace,
+  onFallbackTo2D,
 }: {
   state: MonopolyState;
   focusIndex: number;
@@ -218,38 +262,60 @@ export default function MonopolyScene({
   colorById: Record<string, string>;
   fallback: ReactNode;
   onSelectSpace?: (index: number) => void;
+  onFallbackTo2D?: () => void;
 }) {
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
   const ok = useMemo(() => supportsWebGL(), []);
 
-  if (!ok) {
+  const fail = () => {
+    setFailed(true);
+    onFallbackTo2D?.();
+  };
+
+  if (!ok || failed) {
     return <>{fallback}</>;
   }
 
   return (
-    <div className="monopoly-canvas">
-      <Canvas
-        shadows
-        dpr={[1, 1.5]}
-        frameloop="always"
-        gl={{
-          antialias: true,
-          powerPreference: 'high-performance',
-          alpha: false,
-        }}
-        onCreated={({ gl }) => {
-          gl.setClearColor('#0a0a0b');
-        }}
-      >
-        <Suspense fallback={null}>
-          <SceneContent
-            state={state}
-            focusIndex={focusIndex}
-            myId={myId}
-            colorById={colorById}
-            onSelectSpace={onSelectSpace}
-          />
-        </Suspense>
-      </Canvas>
-    </div>
+    <SceneErrorBoundary fallback={fallback} onError={fail}>
+      <div className="monopoly-canvas" style={{ position: 'relative' }}>
+        {!ready && (
+          <div className="monopoly-canvas-placeholder" aria-hidden>
+            {fallback}
+          </div>
+        )}
+        <Canvas
+          shadows
+          dpr={[1, 1.5]}
+          frameloop="always"
+          style={{
+            opacity: ready ? 1 : 0,
+            position: ready ? 'relative' : 'absolute',
+            inset: 0,
+          }}
+          gl={{
+            antialias: true,
+            powerPreference: 'high-performance',
+            alpha: false,
+          }}
+          onCreated={({ gl }) => {
+            gl.setClearColor('#0a0a0b');
+            setReady(true);
+          }}
+        >
+          <WebGlContextGuard onLost={fail} />
+          <Suspense fallback={null}>
+            <SceneContent
+              state={state}
+              focusIndex={focusIndex}
+              myId={myId}
+              colorById={colorById}
+              onSelectSpace={onSelectSpace}
+            />
+          </Suspense>
+        </Canvas>
+      </div>
+    </SceneErrorBoundary>
   );
 }

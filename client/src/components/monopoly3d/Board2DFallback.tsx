@@ -8,12 +8,14 @@ export default function Board2DFallback({
   focusIndex,
   colorById,
   myId,
+  onSelectSpace,
 }: {
   spaces: MonopolySpace[];
   tokens: MonopolyToken[];
   focusIndex: number;
   colorById: Record<string, string>;
   myId: string | null;
+  onSelectSpace?: (index: number) => void;
 }) {
   return (
     <div className="monopoly-board monopoly-board-2d" role="grid" aria-label="Plansza Monopoly">
@@ -28,9 +30,15 @@ export default function Board2DFallback({
         return (
           <div
             key={space.index}
-            className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}`}
+            role="button"
+            tabIndex={0}
+            className={`monopoly-cell${isFocus ? ' is-focus' : ''}${isCorner ? ' is-corner' : ''}${space.mortgaged ? ' is-mortgaged' : ''}`}
             style={{ gridRow: row + 1, gridColumn: col + 1 }}
             title={space.name}
+            onClick={() => onSelectSpace?.(space.index)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onSelectSpace?.(space.index);
+            }}
           >
             <span className="monopoly-cell-bar" style={{ background: bar }} />
             <span className="monopoly-cell-label">{shortLabel(space)}</span>
@@ -47,6 +55,11 @@ export default function Board2DFallback({
                 title={(space.houses || 0) >= 5 ? 'Hotel' : `${space.houses} dom(y)`}
               >
                 {(space.houses || 0) >= 5 ? 'H' : space.houses}
+              </span>
+            )}
+            {space.mortgaged && (
+              <span className="monopoly-mortgage-badge" title="Zastawione">
+                Z
               </span>
             )}
             <div className="monopoly-tokens">

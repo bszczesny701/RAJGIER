@@ -175,6 +175,12 @@
   box-shadow: var(--m-shadow);
 }
 
+.monopoly-canvas-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
 .monopoly-canvas {
   width: 100%;
   height: min(70vh, 720px);
@@ -277,6 +283,32 @@
 
 .monopoly-houses-badge.is-hotel {
   background: #dc2626;
+}
+
+.monopoly-mortgage-badge {
+  position: absolute;
+  bottom: 14px;
+  left: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: #52525b;
+  color: #fafafa;
+  font-size: 0.58rem;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+}
+
+.monopoly-inventory-item.is-mortgaged {
+  opacity: 0.85;
+  border-style: dashed;
+}
+
+.monopoly-deed-mortgaged {
+  color: #b91c1c !important;
+  font-weight: 700;
 }
 
 .monopoly-tokens {
@@ -402,23 +434,28 @@
 .monopoly-action-btns.is-compact {
   flex-direction: row;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 4px;
+  align-items: stretch;
 }
 
 .monopoly-action-btns.is-compact .btn {
   flex: 1;
   min-width: 0;
   width: auto;
-  padding: 11px 8px;
-  font-size: 0.9rem;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
   line-height: 1.1;
+  border-radius: 8px;
 }
 
 .monopoly-action-btns.is-compact .monopoly-focus-meta {
   flex: 1;
   margin: 0;
   text-align: center;
-  padding: 8px 4px;
+  padding: 4px 4px;
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .monopoly-action-bar {
@@ -451,8 +488,8 @@
   .page.monopoly-page {
     max-width: 480px;
     padding: 6px 8px;
-    /* Ciaśniejszy bar: ~48px + safe */
-    padding-bottom: calc(52px + var(--safe-bottom));
+    /* Min bar ~36px + safe */
+    padding-bottom: calc(40px + var(--safe-bottom));
   }
 
   .monopoly-layout {
@@ -473,8 +510,8 @@
 
   .monopoly-board-wrap,
   .monopoly-canvas {
-    min-height: min(52vh, 100vw);
-    height: min(52vh, 100vw);
+    min-height: min(56vh, 100vw);
+    height: min(56vh, 100vw);
   }
 
   .monopoly-hud {
@@ -493,7 +530,7 @@
     right: 0;
     bottom: 0;
     z-index: 40;
-    padding: 4px 8px calc(4px + var(--safe-bottom));
+    padding: 2px 6px calc(2px + var(--safe-bottom));
     background: rgba(10, 10, 11, 0.96);
     border-top: 1px solid var(--m-line);
     backdrop-filter: blur(12px);

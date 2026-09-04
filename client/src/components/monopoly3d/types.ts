@@ -9,9 +9,14 @@ export interface MonopolySpace {
   houseCost: number | null;
   ownerId: string | null;
   houses: number;
+  mortgaged?: boolean;
   canBuild?: boolean;
   canSellHouse?: boolean;
+  canMortgage?: boolean;
+  canUnmortgage?: boolean;
   sellRefund?: number | null;
+  mortgageAmount?: number | null;
+  unmortgageCost?: number | null;
 }
 
 export interface MonopolyToken {

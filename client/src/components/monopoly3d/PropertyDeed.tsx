@@ -27,12 +27,16 @@ export default function PropertyDeed({
   onClose,
   onBuild,
   onSellHouse,
+  onMortgage,
+  onUnmortgage,
 }: {
   space: MonopolySpace;
   ownerName: string | null;
   onClose: () => void;
   onBuild?: () => void;
   onSellHouse?: () => void;
+  onMortgage?: () => void;
+  onUnmortgage?: () => void;
 }) {
   const color = GROUP_COLORS[space.group] || GROUP_COLORS.special;
   const isInvestment = space.type === 'investment';
@@ -41,6 +45,7 @@ export default function PropertyDeed({
   const buyable = isInvestment || isRail || isUtility;
   const houses = space.houses || 0;
   const showBuildActions = isInvestment && (space.canBuild || space.canSellHouse);
+  const showMortgageActions = buyable && (space.canMortgage || space.canUnmortgage || space.mortgaged);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -64,6 +69,10 @@ export default function PropertyDeed({
         )}
         {!ownerName && buyable && (
           <p className="monopoly-deed-owner">Wolna — do kupienia</p>
+        )}
+
+        {space.mortgaged && (
+          <p className="monopoly-deed-owner monopoly-deed-mortgaged">Zastawione — czynsz 0</p>
         )}
 
         {isInvestment && (
@@ -132,6 +141,27 @@ export default function PropertyDeed({
               onClick={() => onSellHouse?.()}
             >
               Sprzedaj{space.sellRefund != null ? ` (+${space.sellRefund})` : ''}
+            </button>
+          </div>
+        )}
+
+        {showMortgageActions && (
+          <div className="monopoly-build-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={!space.canMortgage}
+              onClick={() => onMortgage?.()}
+            >
+              Zastaw{space.mortgageAmount != null ? ` (+${space.mortgageAmount})` : ''}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!space.canUnmortgage}
+              onClick={() => onUnmortgage?.()}
+            >
+              Wykup{space.unmortgageCost != null ? ` (−${space.unmortgageCost})` : ''}
             </button>
           </div>
         )}

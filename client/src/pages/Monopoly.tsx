@@ -10,6 +10,22 @@ import './Monopoly.css';
 
 const MonopolyScene = lazy(() => import('../components/monopoly3d/MonopolyScene'));
 
+const BOARD_MODE_KEY = 'monopolyBoardMode';
+type BoardMode = '2d' | '3d';
+
+function defaultBoardMode(): BoardMode {
+  try {
+    const saved = localStorage.getItem(BOARD_MODE_KEY);
+    if (saved === '2d' || saved === '3d') return saved;
+  } catch {
+    /* ignore */
+  }
+  if (typeof window === 'undefined') return '2d';
+  const narrow = window.matchMedia('(max-width: 820px)').matches;
+  const coarse = window.matchMedia('(pointer: coarse)').matches;
+  return narrow || coarse ? '2d' : '3d';
+}
+
 function TurnActions({
   state,
   onRoll,
@@ -103,9 +119,19 @@ export default function Monopoly() {
   const [diceRolling, setDiceRolling] = useState(false);
   const [displayDie, setDisplayDie] = useState<number | null>(null);
   const [bonusFlash, setBonusFlash] = useState(false);
+  const [boardMode, setBoardMode] = useState<BoardMode>(() => defaultBoardMode());
   const rollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const rollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isHost = room?.hostId === playerId;
+
+  const setBoardModePersist = (mode: BoardMode) => {
+    setBoardMode(mode);
+    try {
+      localStorage.setItem(BOARD_MODE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     if (!room) {
@@ -170,6 +196,8 @@ export default function Monopoly() {
 
   const emitBuild = (spaceIndex: number) => emit('monopolyBuild', { spaceIndex });
   const emitSellHouse = (spaceIndex: number) => emit('monopolySellHouse', { spaceIndex });
+  const emitMortgage = (spaceIndex: number) => emit('monopolyMortgage', { spaceIndex });
+  const emitUnmortgage = (spaceIndex: number) => emit('monopolyUnmortgage', { spaceIndex });
 
   const handleRoll = () => {
     if (diceRolling) return;
@@ -232,6 +260,7 @@ export default function Monopoly() {
         focusIndex={focusIndex}
         colorById={colorById}
         myId={playerId}
+        onSelectSpace={(idx) => setDeedSpace(state.spaces[idx] || null)}
       />
     );
   }
@@ -276,6 +305,14 @@ export default function Monopoly() {
               <button
                 type="button"
                 className="monopoly-inv-btn"
+                onClick={() => setBoardModePersist(boardMode === '2d' ? '3d' : '2d')}
+                aria-label={boardMode === '2d' ? 'Włącz planszę 3D' : 'Włącz planszę 2D'}
+              >
+                {boardMode === '2d' ? '3D' : '2D'}
+              </button>
+              <button
+                type="button"
+                className="monopoly-inv-btn"
                 onClick={() => setPiecePickerOpen(true)}
               >
                 Pionek
@@ -307,16 +344,21 @@ export default function Monopoly() {
 
           <div className="monopoly-layout">
             <div className="monopoly-board-wrap">
-              <Suspense fallback={boardFallback}>
-                <MonopolyScene
-                  state={state}
-                  focusIndex={focusIndex}
-                  myId={playerId}
-                  colorById={colorById}
-                  fallback={boardFallback}
-                  onSelectSpace={(idx) => setDeedSpace(state.spaces[idx] || null)}
-                />
-              </Suspense>
+              {boardMode === '2d' ? (
+                boardFallback
+              ) : (
+                <Suspense fallback={boardFallback}>
+                  <MonopolyScene
+                    state={state}
+                    focusIndex={focusIndex}
+                    myId={playerId}
+                    colorById={colorById}
+                    fallback={boardFallback}
+                    onSelectSpace={(idx) => setDeedSpace(state.spaces[idx] || null)}
+                    onFallbackTo2D={() => setBoardModePersist('2d')}
+                  />
+                </Suspense>
+              )}
             </div>
 
             <div className="monopoly-side">
@@ -434,11 +476,13 @@ export default function Monopoly() {
                   const live = state.spaces[s.index] || s;
                   const houses = live.houses || 0;
                   const isInvestment = live.type === 'investment';
+                  const buyable =
+                    isInvestment || live.type === 'rail' || live.type === 'utility';
                   return (
                     <li key={live.index} className="monopoly-inventory-row">
                       <button
                         type="button"
-                        className="monopoly-inventory-item"
+                        className={`monopoly-inventory-item${live.mortgaged ? ' is-mortgaged' : ''}`}
                         onClick={() => {
                           setInventoryOpen(false);
                           setDeedSpace(live);
@@ -452,8 +496,17 @@ export default function Monopoly() {
                           <span className="monopoly-inventory-name">{live.name}</span>
                           {isInvestment && (
                             <span className="monopoly-inventory-houses">
-                              {houses >= 5 ? 'Hotel' : houses > 0 ? `${'●'.repeat(houses)}` : 'Bez domów'}
+                              {live.mortgaged
+                                ? 'Zastaw'
+                                : houses >= 5
+                                  ? 'Hotel'
+                                  : houses > 0
+                                    ? `${'●'.repeat(houses)}`
+                                    : 'Bez domów'}
                             </span>
+                          )}
+                          {!isInvestment && live.mortgaged && (
+                            <span className="monopoly-inventory-houses">Zastaw</span>
                           )}
                         </span>
                         <span className="monopoly-inventory-price">{live.price ?? '—'}</span>
@@ -478,6 +531,26 @@ export default function Monopoly() {
                           </button>
                         </div>
                       )}
+                      {buyable && (
+                        <div className="monopoly-inventory-actions">
+                          <button
+                            type="button"
+                            className="btn btn-secondary monopoly-inv-action"
+                            disabled={!live.canMortgage}
+                            onClick={() => emitMortgage(live.index)}
+                          >
+                            Zastaw{live.mortgageAmount != null ? ` ${live.mortgageAmount}` : ''}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary monopoly-inv-action"
+                            disabled={!live.canUnmortgage}
+                            onClick={() => emitUnmortgage(live.index)}
+                          >
+                            Wykup{live.unmortgageCost != null ? ` ${live.unmortgageCost}` : ''}
+                          </button>
+                        </div>
+                      )}
                     </li>
                   );
                 })}
@@ -498,6 +571,8 @@ export default function Monopoly() {
           onClose={() => setDeedSpace(null)}
           onBuild={() => emitBuild(deedSpace.index)}
           onSellHouse={() => emitSellHouse(deedSpace.index)}
+          onMortgage={() => emitMortgage(deedSpace.index)}
+          onUnmortgage={() => emitUnmortgage(deedSpace.index)}
         />
       )}
 

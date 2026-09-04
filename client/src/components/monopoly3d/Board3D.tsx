@@ -75,6 +75,13 @@ function SpaceMesh({
         </mesh>
       )}
 
+      {space.mortgaged && (
+        <mesh position={[CELL * 0.28, baseH + 0.08, -CELL * 0.05]}>
+          <boxGeometry args={[0.16, 0.06, 0.16]} />
+          <meshStandardMaterial color="#52525b" roughness={0.5} />
+        </mesh>
+      )}
+
       <Text
         position={[0, baseH + 0.08, 0.08]}
         rotation={[-Math.PI / 2, 0, 0]}
