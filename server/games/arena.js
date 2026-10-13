@@ -241,12 +241,34 @@ function makeTowers(ownerId, side) {
   ];
 }
 
-function drawHand(queue) {
-  const hand = [];
-  while (hand.length < HAND_SIZE && queue.length) {
-    hand.push(queue.shift());
+/** Dobierz kolejną kartę spoza ręki (bez duplikatów w EQ). */
+function drawNextUnique(player) {
+  if (!player.deckQueue.length) {
+    player.deckQueue.push(...shuffle([...DEFAULT_DECK]));
   }
-  return hand;
+
+  const total = player.deckQueue.length;
+  for (let i = 0; i < total; i++) {
+    const next = player.deckQueue.shift();
+    if (!player.hand.includes(next)) {
+      player.hand.push(next);
+      return next;
+    }
+    // ta sama karta co w ręce — na koniec kolejki, spróbuj następną
+    player.deckQueue.push(next);
+  }
+
+  // awaryjnie (nie powinno się zdarzyć przy talii 8 unikalnych)
+  const fallback = player.deckQueue.shift();
+  if (fallback) player.hand.push(fallback);
+  return fallback || null;
+}
+
+function drawOpeningHand(player) {
+  player.hand = [];
+  while (player.hand.length < HAND_SIZE) {
+    if (!drawNextUnique(player)) break;
+  }
 }
 
 function createArenaState(playerIds) {
@@ -262,7 +284,8 @@ function createArenaState(playerIds) {
       id: a,
       side: 0,
       elixir: ELIXIR_START,
-      deckQueue: shuffle([...DEFAULT_DECK, ...DEFAULT_DECK]),
+      // jedna kopia każdej karty — jak talia CR
+      deckQueue: shuffle([...DEFAULT_DECK]),
       hand: [],
       crowns: 0,
     },
@@ -270,17 +293,14 @@ function createArenaState(playerIds) {
       id: b,
       side: 1,
       elixir: ELIXIR_START,
-      deckQueue: shuffle([...DEFAULT_DECK, ...DEFAULT_DECK]),
+      deckQueue: shuffle([...DEFAULT_DECK]),
       hand: [],
       crowns: 0,
     },
   };
 
   for (const p of Object.values(players)) {
-    p.hand = drawHand(p.deckQueue);
-    if (p.deckQueue.length < 8) {
-      p.deckQueue.push(...shuffle([...DEFAULT_DECK]));
-    }
+    drawOpeningHand(p);
   }
 
   return {
@@ -408,12 +428,10 @@ function cycleCard(player, cardId) {
   const idx = player.hand.indexOf(cardId);
   if (idx === -1) return false;
   player.hand.splice(idx, 1);
-  if (player.deckQueue.length === 0) {
-    player.deckQueue.push(...shuffle([...DEFAULT_DECK]));
-  }
-  const next = player.deckQueue.shift();
-  player.hand.push(next);
+  // zagrana karta wraca na koniec talii
   player.deckQueue.push(cardId);
+  // następna karta z talii — pomiń te, które już są w ręce
+  drawNextUnique(player);
   return true;
 }
 
@@ -525,6 +543,14 @@ function applySpell(state, ownerId, def, x, y) {
   state.units = state.units.filter((u) => u.hp > 0);
 }
 
+function syncCrowns(state) {
+  for (const id of state.playerIds) {
+    if (state.players[id]) {
+      state.players[id].crowns = countCrowns(state, id);
+    }
+  }
+}
+
 function destroyTower(state, tower, attackerId) {
   if (!tower.alive) return;
   tower.alive = false;
@@ -540,9 +566,7 @@ function destroyTower(state, tower, attackerId) {
     ownerId: attackerId,
   });
 
-  if (attackerId && state.players[attackerId]) {
-    state.players[attackerId].crowns = countCrowns(state, attackerId);
-  }
+  syncCrowns(state);
 
   if (tower.type === 'king') {
     state.winner = attackerId;
@@ -694,10 +718,26 @@ function tickProjectiles(state, dt) {
 function fireAttack(state, entity, target) {
   faceToward(entity, target.ref);
   entity.anim = 'attack';
-  entity.attackAnim = 0.28;
+  entity.attackAnim = entity.projectile === 'fire' ? 0.45 : 0.32;
+  entity.attackTargetX = target.ref.x;
+  entity.attackTargetY = target.ref.y;
 
   const style = entity.projectile;
-  if (style) {
+  if (style === 'fire') {
+    // Smok: widoczny strumień ognia + pocisk
+    state.effects.push({
+      id: `e${state.nextUnitId++}`,
+      type: 'dragon-breath',
+      x: entity.x,
+      y: entity.y,
+      tx: target.ref.x,
+      ty: target.ref.y,
+      radius: 1.2,
+      ttl: 0.4,
+      ownerId: entity.ownerId,
+    });
+    spawnProjectile(state, entity, target, style);
+  } else if (style) {
     spawnProjectile(state, entity, target, style);
   } else {
     applyHit(state, target.ref, target.kind, entity.damage, entity.splash || 0, target.ref, entity.ownerId);
@@ -707,7 +747,7 @@ function fireAttack(state, entity, target) {
       x: (entity.x + target.ref.x) / 2,
       y: (entity.y + target.ref.y) / 2,
       radius: 0.7,
-      ttl: 0.2,
+      ttl: 0.22,
       ownerId: entity.ownerId,
     });
   }
@@ -849,6 +889,13 @@ function getPublicArenaState(state, playerId) {
   const mapUnit = (u) => {
     const pos = toViewerCoords(u, side);
     const def = CARDS[u.cardId];
+    let atx = null;
+    let aty = null;
+    if (u.attackAnim > 0 && u.attackTargetX != null) {
+      const tip = toViewerCoords({ x: u.attackTargetX, y: u.attackTargetY }, side);
+      atx = tip.x;
+      aty = tip.y;
+    }
     return {
       id: u.id,
       cardId: u.cardId,
@@ -866,6 +913,8 @@ function getPublicArenaState(state, playerId) {
       anim: u.anim || 'idle',
       attackAnim: u.attackAnim || 0,
       hitFlash: u.hitFlash || 0,
+      attackTargetX: atx,
+      attackTargetY: aty,
     };
   };
 
@@ -888,7 +937,7 @@ function getPublicArenaState(state, playerId) {
 
   const mapEffect = (e) => {
     const pos = toViewerCoords(e, side);
-    return {
+    const out = {
       id: e.id,
       type: e.type,
       x: pos.x,
@@ -896,6 +945,13 @@ function getPublicArenaState(state, playerId) {
       radius: e.radius,
       ttl: e.ttl,
     };
+    if (e.tx != null && e.ty != null) {
+      const tip = toViewerCoords({ x: e.tx, y: e.ty }, side);
+      out.tx = tip.x;
+      out.ty = tip.y;
+      out.angle = Math.atan2(tip.y - pos.y, tip.x - pos.x);
+    }
+    return out;
   };
 
   const hand = me.hand.map((id) => {
@@ -911,7 +967,8 @@ function getPublicArenaState(state, playerId) {
     };
   });
 
-  const nextId = me.deckQueue[0];
+  // Podgląd następnej karty — pierwsza w kolejce, której nie ma w ręce
+  const nextId = me.deckQueue.find((id) => !me.hand.includes(id)) || null;
   const nextCard = nextId
     ? {
       id: nextId,
@@ -932,8 +989,8 @@ function getPublicArenaState(state, playerId) {
     elixirMax: ELIXIR_MAX,
     hand,
     nextCard,
-    myCrowns: me.crowns,
-    enemyCrowns: opp?.crowns ?? 0,
+    myCrowns: countCrowns(state, playerId),
+    enemyCrowns: opponentId ? countCrowns(state, opponentId) : 0,
     myName: null,
     enemyName: null,
     towers: state.towers.map(mapTower),

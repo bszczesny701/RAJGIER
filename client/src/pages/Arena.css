@@ -87,15 +87,21 @@
 
 .arena-crowns {
   display: flex;
-  gap: 1px;
-  font-size: 0.78rem;
-  filter: grayscale(1);
-  opacity: 0.45;
+  gap: 2px;
+  font-size: 0.85rem;
 }
 
-.arena-crowns .on {
+.arena-crowns span {
+  filter: grayscale(1) brightness(0.7);
+  opacity: 0.4;
+  transition: filter 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.arena-crowns span.on {
   filter: none;
   opacity: 1;
+  transform: scale(1.12);
+  text-shadow: 0 0 8px rgba(251, 191, 36, 0.85);
 }
 
 /* ——— 3D-ish arena field ——— */
@@ -265,6 +271,24 @@
 .arena-proj-wrap {
   width: 0;
   height: 0;
+}
+
+.arena-breath {
+  position: absolute;
+  height: 14px;
+  transform-origin: 0 50%;
+  pointer-events: none;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    rgba(254, 243, 199, 0.95),
+    rgba(249, 115, 22, 0.85) 35%,
+    rgba(239, 68, 68, 0.55) 70%,
+    transparent);
+  box-shadow:
+    0 0 12px rgba(249, 115, 22, 0.9),
+    0 0 24px rgba(239, 68, 68, 0.5);
+  filter: blur(0.3px);
+  animation: breath-pulse 0.35s ease-out;
 }
 
 .arena-effect {
@@ -506,11 +530,33 @@
 }
 
 .aproj-fire {
-  width: 16px;
-  height: 10px;
+  width: 18px;
+  height: 12px;
   border-radius: 50%;
-  background: radial-gradient(circle, #fde68a, #f97316 50%, #ef4444);
-  box-shadow: 0 0 14px #fb923c;
+  background: radial-gradient(circle, #fef9c3, #f97316 45%, #b91c1c);
+  box-shadow: 0 0 16px #fb923c, 0 0 28px rgba(239, 68, 68, 0.5);
+}
+
+.aproj-fire-tail {
+  position: absolute;
+  right: 70%;
+  top: 20%;
+  width: 160%;
+  height: 60%;
+  border-radius: 40%;
+  background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.7));
+  filter: blur(2px);
+}
+
+.aproj-arrow-tip {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid #fbbf24;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
 }
 
 .aproj-cannon {
@@ -524,35 +570,44 @@
 /* ——— Sprites (pseudo-3D) ——— */
 .asprite {
   position: relative;
-  width: 36px;
-  height: 42px;
+  width: 40px;
+  height: 48px;
   transform-style: preserve-3d;
 }
 
-.asprite-sm { width: 28px; height: 34px; }
-.asprite-lg { width: 48px; height: 56px; }
-.asprite-xl { width: 58px; height: 68px; }
+.asprite-3d .asprite-stage {
+  position: absolute;
+  inset: 0;
+  transform: rotateX(18deg) rotateY(-8deg);
+  transform-style: preserve-3d;
+  transform-origin: 50% 90%;
+}
 
-.asprite-flip .asprite-body {
-  transform: scaleX(-1);
+.asprite-sm { width: 30px; height: 36px; }
+.asprite-lg { width: 52px; height: 60px; }
+.asprite-xl { width: 64px; height: 74px; }
+
+.asprite-flip .asprite-stage {
+  transform: rotateX(18deg) rotateY(8deg) scaleX(-1);
 }
 
 .asprite-shadow {
   position: absolute;
   left: 50%;
-  bottom: 1px;
-  width: 58%;
-  height: 14%;
-  transform: translateX(-50%);
+  bottom: 0;
+  width: 62%;
+  height: 12%;
+  transform: translateX(-50%) rotateX(70deg);
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
-  filter: blur(2px);
+  background: rgba(0, 0, 0, 0.45);
+  filter: blur(2.5px);
 }
 
 .asprite-body {
   position: absolute;
   inset: 0;
   transform-origin: 50% 85%;
+  filter: drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.35));
 }
 
 .asprite-anim-walk .asprite-body {
@@ -906,6 +961,29 @@
   clip-path: polygon(0 0, 100% 25%, 0 50%);
 }
 
+.asp-kt-ledge {
+  position: absolute;
+  left: 18%;
+  bottom: 58%;
+  width: 64%;
+  height: 6%;
+  background: #57534e;
+}
+
+.asp-kt-gun {
+  position: absolute;
+  left: 42%;
+  bottom: 48%;
+  width: 16%;
+  height: 14%;
+  border-radius: 3px;
+  background: #1c1917;
+}
+
+.asp-kt-gun.firing {
+  box-shadow: 0 0 8px #fbbf24;
+}
+
 /* Princess tower */
 .asp-pt-base {
   position: absolute;
@@ -943,6 +1021,195 @@
   background: linear-gradient(145deg, #fde68a, #b45309);
 }
 
+.asp-pt-band {
+  position: absolute;
+  left: 30%;
+  bottom: 40%;
+  width: 40%;
+  height: 6%;
+  background: #a16207;
+}
+
+/* Extra 3D details */
+.asp-plate-back {
+  position: absolute;
+  left: 30%;
+  top: 30%;
+  width: 40%;
+  height: 34%;
+  border-radius: 6px;
+  background: #334155;
+  transform: translateZ(-4px);
+}
+.asp-pauldron {
+  position: absolute;
+  top: 28%;
+  width: 18%;
+  height: 14%;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #e2e8f0, #64748b);
+}
+.asp-pauldron-l { left: 12%; }
+.asp-pauldron-r { right: 12%; }
+.asp-visor {
+  position: absolute;
+  left: 36%;
+  top: 14%;
+  width: 28%;
+  height: 6%;
+  background: #0f172a;
+  border-radius: 2px;
+}
+.asp-eye {
+  position: absolute;
+  top: 14%;
+  width: 6%;
+  height: 6%;
+  border-radius: 50%;
+  background: #fef08a;
+  box-shadow: 0 0 4px #facc15;
+}
+.asp-eye-l { left: 38%; }
+.asp-eye-r { right: 38%; }
+.asp-brow {
+  position: absolute;
+  left: 30%;
+  top: 8%;
+  width: 40%;
+  height: 8%;
+  background: #9f1239;
+  border-radius: 4px;
+}
+.asp-robe {
+  position: absolute;
+  left: 24%;
+  top: 36%;
+  width: 52%;
+  height: 48%;
+  border-radius: 8px 8px 12px 12px;
+  background: linear-gradient(180deg, #7c3aed88, #4c1d95);
+}
+.asp-belly {
+  position: absolute;
+  left: 32%;
+  top: 42%;
+  width: 36%;
+  height: 22%;
+  border-radius: 40%;
+  background: linear-gradient(180deg, #fecaca, #f87171);
+}
+.asp-jaw {
+  position: absolute;
+  left: 52%;
+  top: 32%;
+  width: 28%;
+  height: 12%;
+  border-radius: 0 40% 40% 30%;
+  background: #991b1b;
+}
+.asp-horn {
+  position: absolute;
+  top: 8%;
+  width: 10%;
+  height: 14%;
+  background: #fef3c7;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.asp-horn-l { left: 48%; }
+.asp-horn-r { left: 62%; }
+
+.asp-fire-spark {
+  position: absolute;
+  width: 10%;
+  height: 10%;
+  border-radius: 50%;
+  background: #fde68a;
+  animation: orb-pulse 0.5s ease-in-out infinite;
+}
+.asp-fire-spark.s1 { left: 18%; top: 22%; }
+.asp-fire-spark.s2 { right: 16%; bottom: 24%; animation-delay: 0.15s; }
+
+/* Attack FX on sprites */
+.asp-fx {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+}
+.asp-fx-slash {
+  right: 0;
+  top: 20%;
+  width: 40%;
+  height: 40%;
+  border-radius: 50%;
+  border-top: 3px solid #fef3c7;
+  border-right: 3px solid transparent;
+  animation: fx-slash 0.28s ease-out;
+}
+.asp-fx-stab {
+  right: -10%;
+  top: 35%;
+  width: 30%;
+  height: 8%;
+  background: linear-gradient(90deg, #fef3c7, transparent);
+}
+.asp-fx-arrow {
+  right: -20%;
+  top: 40%;
+  width: 45%;
+  height: 3px;
+  background: linear-gradient(90deg, #fbbf24, transparent);
+}
+.asp-fx-slam {
+  left: 10%;
+  bottom: 5%;
+  width: 80%;
+  height: 20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(254, 243, 199, 0.7), transparent 70%);
+  animation: fx-spawn 0.3s ease-out;
+}
+.asp-fx-bolt {
+  right: -5%;
+  top: 10%;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fef9c3, #a855f7 55%, transparent);
+  box-shadow: 0 0 12px #c084fc;
+  animation: orb-pulse 0.25s ease-out;
+}
+.asp-fx-breath {
+  left: 70%;
+  top: 22%;
+  width: 0;
+  height: 10%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fef08a, #f97316, transparent);
+  opacity: 0;
+}
+.asp-fx-breath.on {
+  width: 90%;
+  opacity: 1;
+  box-shadow: 0 0 10px #fb923c;
+  animation: breath-spit 0.4s ease-out;
+}
+.asp-fx-muzzle {
+  left: 48%;
+  top: 28%;
+  width: 20%;
+  height: 16%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fef3c7, #f59e0b 50%, transparent);
+}
+
+.knight-sword.swinging { animation: sword-swing 0.28s ease-out; }
+.gob-spear.thrusting { animation: spear-thrust 0.25s ease-out; }
+.arch-bow.drawn { transform: scaleX(0.85) rotate(12deg); }
+.wiz-staff.casting .asp-orb,
+.asp-orb.blasting { transform: scale(1.4); box-shadow: 0 0 14px #e879f9; }
+.giant-torso.slamming { animation: attack-lunge 0.3s ease-out; }
+.asp-tower-cannon.firing { box-shadow: 0 0 8px #fbbf24; }
+
 /* ——— Animations ——— */
 @keyframes walk-bob {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
@@ -951,8 +1218,36 @@
 
 @keyframes attack-lunge {
   0% { transform: translateY(0) scale(1); }
-  40% { transform: translateY(-3px) scale(1.08); }
+  40% { transform: translateY(-3px) scale(1.1); }
   100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes sword-swing {
+  0% { transform: rotate(-20deg); }
+  50% { transform: rotate(35deg); }
+  100% { transform: rotate(-12deg); }
+}
+
+@keyframes spear-thrust {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes breath-spit {
+  0% { width: 10%; opacity: 0.4; }
+  60% { width: 100%; opacity: 1; }
+  100% { width: 90%; opacity: 0.7; }
+}
+
+@keyframes breath-pulse {
+  from { opacity: 0.4; filter: blur(2px); }
+  to { opacity: 1; filter: blur(0.3px); }
+}
+
+@keyframes fx-slash {
+  from { transform: rotate(-40deg) scale(0.5); opacity: 0; }
+  to { transform: rotate(10deg) scale(1); opacity: 1; }
 }
 
 @keyframes fly-bob {

@@ -45,6 +45,8 @@ interface ArenaUnit {
   anim: string;
   attackAnim: number;
   hitFlash: number;
+  attackTargetX?: number | null;
+  attackTargetY?: number | null;
 }
 
 interface ArenaProjectile {
@@ -65,6 +67,9 @@ interface ArenaEffect {
   y: number;
   radius: number;
   ttl: number;
+  tx?: number;
+  ty?: number;
+  angle?: number;
 }
 
 interface DeployZone {
@@ -106,10 +111,11 @@ function formatTime(ms: number): string {
 }
 
 function Crowns({ count }: { count: number }) {
+  const n = Math.max(0, Math.min(3, Number(count) || 0));
   return (
-    <div className="arena-crowns" aria-label={`${count} korony`}>
+    <div className="arena-crowns" aria-label={`${n} korony`}>
       {[0, 1, 2].map((i) => (
-        <span key={i} className={i < count ? 'on' : ''}>👑</span>
+        <span key={i} className={i < n ? 'on' : ''} aria-hidden>👑</span>
       ))}
     </div>
   );
@@ -374,6 +380,27 @@ export default function Arena() {
               })}
 
               {state.effects.map((e) => {
+                if (e.type === 'dragon-breath' && e.tx != null && e.ty != null) {
+                  const from = toPercent(e.x, e.y, state.arenaW, state.arenaH);
+                  const dx = e.tx - e.x;
+                  const dy = e.ty - e.y;
+                  const len = Math.sqrt(dx * dx + dy * dy);
+                  const deg = (-Math.atan2(dy, dx) * 180) / Math.PI;
+                  return (
+                    <div
+                      key={e.id}
+                      className="arena-breath"
+                      style={{
+                        left: from.left,
+                        top: from.top,
+                        width: `${(len / state.arenaW) * 100}%`,
+                        opacity: Math.min(1, e.ttl * 2.5),
+                        transform: `translate(0, -50%) rotate(${deg}deg)`,
+                        zIndex: 75,
+                      }}
+                    />
+                  );
+                }
                 const style = {
                   ...toPercent(e.x, e.y, state.arenaW, state.arenaH),
                   width: `${(e.radius * 2 / state.arenaW) * 100}%`,
