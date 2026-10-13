@@ -1,6 +1,6 @@
 /**
- * Arena — uproszczona bitwa 1v1 w stylu Clash Royale.
- * Współrzędne: szerokość 18, wysokość 32. Gracz A (index 0) na dole, B na górze.
+ * Arena — bitwa 1v1 w stylu Clash Royale.
+ * Współrzędne: szerokość 18, wysokość 32. Gracz A (side 0) na dole, B na górze.
  */
 
 const ARENA_W = 18;
@@ -12,6 +12,8 @@ const ELIXIR_MAX = 10;
 const ELIXIR_START = 5;
 const ELIXIR_PER_SEC = 1 / 2.8;
 const HAND_SIZE = 4;
+const BRIDGE_PUSH = 4.2;
+const BOTH_TOWERS_PUSH = 5.8;
 
 const CARDS = {
   rycerz: {
@@ -29,6 +31,8 @@ const CARDS = {
     splash: 0,
     flying: false,
     targetsBuildings: false,
+    projectile: null,
+    avatar: 'knight',
   },
   gobliny: {
     id: 'gobliny',
@@ -45,6 +49,8 @@ const CARDS = {
     splash: 0,
     flying: false,
     targetsBuildings: false,
+    projectile: null,
+    avatar: 'goblin',
   },
   lucznicy: {
     id: 'lucznicy',
@@ -61,6 +67,9 @@ const CARDS = {
     splash: 0,
     flying: false,
     targetsBuildings: false,
+    projectile: 'arrow',
+    projectileSpeed: 14,
+    avatar: 'archer',
   },
   olbrzym: {
     id: 'olbrzym',
@@ -77,6 +86,8 @@ const CARDS = {
     splash: 0,
     flying: false,
     targetsBuildings: true,
+    projectile: null,
+    avatar: 'giant',
   },
   czarodziej: {
     id: 'czarodziej',
@@ -93,6 +104,9 @@ const CARDS = {
     splash: 1.5,
     flying: false,
     targetsBuildings: false,
+    projectile: 'bolt',
+    projectileSpeed: 11,
+    avatar: 'wizard',
   },
   smok: {
     id: 'smok',
@@ -109,6 +123,9 @@ const CARDS = {
     splash: 1.2,
     flying: true,
     targetsBuildings: false,
+    projectile: 'fire',
+    projectileSpeed: 10,
+    avatar: 'dragon',
   },
   ogien: {
     id: 'ogien',
@@ -119,6 +136,7 @@ const CARDS = {
     radius: 2.5,
     damage: 325,
     towerDamage: 95,
+    avatar: 'fireball',
   },
   wieza: {
     id: 'wieza',
@@ -136,6 +154,9 @@ const CARDS = {
     flying: false,
     targetsBuildings: false,
     lifetimeMs: 40_000,
+    projectile: 'bolt',
+    projectileSpeed: 13,
+    avatar: 'tower',
   },
 };
 
@@ -157,13 +178,13 @@ function shuffle(arr) {
 }
 
 function makeTowers(ownerId, side) {
-  // side 0 = dół, side 1 = góra
   const backY = side === 0 ? 2.5 : ARENA_H - 2.5;
   const frontY = side === 0 ? 6.5 : ARENA_H - 6.5;
   return [
     {
       id: `${ownerId}-king`,
       type: 'king',
+      lane: 'center',
       ownerId,
       x: ARENA_W / 2,
       y: backY,
@@ -174,10 +195,15 @@ function makeTowers(ownerId, side) {
       attackMs: 1000,
       attackCooldown: 0,
       alive: true,
+      projectile: 'cannon',
+      projectileSpeed: 12,
+      facing: side === 0 ? 1 : -1,
+      attackAnim: 0,
     },
     {
       id: `${ownerId}-left`,
       type: 'princess',
+      lane: 'left',
       ownerId,
       x: 3.5,
       y: frontY,
@@ -188,10 +214,15 @@ function makeTowers(ownerId, side) {
       attackMs: 800,
       attackCooldown: 0,
       alive: true,
+      projectile: 'cannon',
+      projectileSpeed: 13,
+      facing: side === 0 ? 1 : -1,
+      attackAnim: 0,
     },
     {
       id: `${ownerId}-right`,
       type: 'princess',
+      lane: 'right',
       ownerId,
       x: ARENA_W - 3.5,
       y: frontY,
@@ -202,6 +233,10 @@ function makeTowers(ownerId, side) {
       attackMs: 800,
       attackCooldown: 0,
       alive: true,
+      projectile: 'cannon',
+      projectileSpeed: 13,
+      facing: side === 0 ? 1 : -1,
+      attackAnim: 0,
     },
   ];
 }
@@ -256,6 +291,7 @@ function createArenaState(playerIds) {
     players,
     towers: [...makeTowers(a, 0), ...makeTowers(b, 1)],
     units: [],
+    projectiles: [],
     effects: [],
     nextUnitId: 1,
     winner: null,
@@ -269,9 +305,7 @@ function mirrorY(y) {
 }
 
 function toViewerCoords(entity, viewerSide) {
-  if (viewerSide === 0) {
-    return { x: entity.x, y: entity.y };
-  }
+  if (viewerSide === 0) return { x: entity.x, y: entity.y };
   return { x: entity.x, y: mirrorY(entity.y) };
 }
 
@@ -293,6 +327,73 @@ function countCrowns(state, attackerId) {
   return princess;
 }
 
+function getEnemyPrincess(state, playerId, lane) {
+  const opponentId = state.playerIds.find((id) => id !== playerId);
+  return state.towers.find(
+    (t) => t.ownerId === opponentId && t.type === 'princess' && t.lane === lane,
+  );
+}
+
+/** Ile pól za rzekę można wystawić w danym X (świat). */
+function getBridgePush(state, playerId, x) {
+  const left = getEnemyPrincess(state, playerId, 'left');
+  const right = getEnemyPrincess(state, playerId, 'right');
+  const leftDown = left && !left.alive;
+  const rightDown = right && !right.alive;
+
+  if (leftDown && rightDown) return BOTH_TOWERS_PUSH;
+
+  const onLeft = x < ARENA_W / 2;
+  if (onLeft && leftDown) return BRIDGE_PUSH;
+  if (!onLeft && rightDown) return BRIDGE_PUSH;
+  return 0;
+}
+
+function canDeployAt(state, playerId, worldX, worldY) {
+  const player = state.players[playerId];
+  const half = ARENA_H / 2;
+  const push = getBridgePush(state, playerId, worldX);
+
+  if (player.side === 0) {
+    const maxY = half - 0.4 + push;
+    return worldY >= 0.5 && worldY <= maxY;
+  }
+  const minY = half + 0.4 - push;
+  return worldY <= ARENA_H - 0.5 && worldY >= minY;
+}
+
+function clampDeploy(state, playerId, x, y) {
+  const player = state.players[playerId];
+  const half = ARENA_H / 2;
+  const push = getBridgePush(state, playerId, x);
+  const cx = Math.max(0.8, Math.min(ARENA_W - 0.8, x));
+  let cy = y;
+  if (player.side === 0) {
+    cy = Math.max(0.8, Math.min(half - 0.4 + push, y));
+  } else {
+    cy = Math.max(half + 0.4 - push, Math.min(ARENA_H - 0.8, y));
+  }
+  return { x: cx, y: cy };
+}
+
+/** Strefa deploy w koordynatach widza (do UI). */
+function getDeployZoneForViewer(state, playerId) {
+  const me = state.players[playerId];
+  const half = ARENA_H / 2;
+  const leftPush = getBridgePush(state, playerId, ARENA_W * 0.25);
+  const rightPush = getBridgePush(state, playerId, ARENA_W * 0.75);
+
+  // W widoku gracza jego tył to y=0; push zwiększa maxY w jego układzie.
+  return {
+    baseMaxY: half - 0.4,
+    leftMaxY: half - 0.4 + leftPush,
+    rightMaxY: half - 0.4 + rightPush,
+    leftPush,
+    rightPush,
+    side: me.side,
+  };
+}
+
 function spawnOffsets(count) {
   if (count === 1) return [{ dx: 0, dy: 0 }];
   if (count === 2) return [{ dx: -0.7, dy: 0 }, { dx: 0.7, dy: 0 }];
@@ -301,17 +402,6 @@ function spawnOffsets(count) {
     { dx: 0.9, dy: 0 },
     { dx: 0, dy: 0.7 },
   ];
-}
-
-function clampDeploy(x, y, side) {
-  const cx = Math.max(0.8, Math.min(ARENA_W - 0.8, x));
-  let cy = y;
-  if (side === 0) {
-    cy = Math.max(0.8, Math.min(ARENA_H / 2 - 0.5, y));
-  } else {
-    cy = Math.max(ARENA_H / 2 + 0.5, Math.min(ARENA_H - 0.8, y));
-  }
-  return { x: cx, y: cy };
 }
 
 function cycleCard(player, cardId) {
@@ -343,7 +433,6 @@ function playCard(state, playerId, cardId, viewX, viewY) {
   const world = fromViewerCoords(viewX, viewY, player.side);
 
   if (def.kind === 'spell') {
-    // Spelle można rzucać na całą arenę
     const sx = Math.max(0.5, Math.min(ARENA_W - 0.5, world.x));
     const sy = Math.max(0.5, Math.min(ARENA_H - 0.5, world.y));
     player.elixir -= def.cost;
@@ -352,16 +441,11 @@ function playCard(state, playerId, cardId, viewX, viewY) {
     return { ok: true };
   }
 
-  const pos = clampDeploy(world.x, world.y, player.side);
-  // Walidacja: czy punkt był po stronie gracza (po clamp i tak jest OK, ale sprawdźmy próby za rzeką)
-  const half = ARENA_H / 2;
-  if (player.side === 0 && world.y > half) {
-    return { ok: false, reason: 'Stawiaj tylko na swojej połowie' };
-  }
-  if (player.side === 1 && world.y < half) {
-    return { ok: false, reason: 'Stawiaj tylko na swojej połowie' };
+  if (!canDeployAt(state, playerId, world.x, world.y)) {
+    return { ok: false, reason: 'Nie możesz tu wystawić — zniszcz wieżę, by poszerzyć strefę' };
   }
 
+  const pos = clampDeploy(state, playerId, world.x, world.y);
   player.elixir -= def.cost;
   cycleCard(player, cardId);
 
@@ -370,6 +454,7 @@ function playCard(state, playerId, cardId, viewX, viewY) {
     const unit = {
       id: `u${state.nextUnitId++}`,
       cardId: def.id,
+      avatar: def.avatar,
       ownerId: playerId,
       x: pos.x + off.dx,
       y: pos.y + off.dy,
@@ -379,17 +464,33 @@ function playCard(state, playerId, cardId, viewX, viewY) {
       range: def.range,
       speed: def.speed,
       attackMs: def.attackMs,
-      attackCooldown: 0.4,
+      attackCooldown: 0.35,
       splash: def.splash || 0,
       flying: !!def.flying,
       targetsBuildings: !!def.targetsBuildings,
       kind: def.kind,
+      projectile: def.projectile || null,
+      projectileSpeed: def.projectileSpeed || 12,
       lifetimeMs: def.lifetimeMs || null,
       ageMs: 0,
       targetId: null,
+      facing: player.side === 0 ? 1 : -1,
+      anim: 'idle',
+      attackAnim: 0,
+      hitFlash: 0,
     };
     state.units.push(unit);
   }
+
+  state.effects.push({
+    id: `e${state.nextUnitId++}`,
+    type: 'spawn',
+    x: pos.x,
+    y: pos.y,
+    radius: 1.2,
+    ttl: 0.35,
+    ownerId: playerId,
+  });
 
   return { ok: true };
 }
@@ -401,7 +502,7 @@ function applySpell(state, ownerId, def, x, y) {
     x,
     y,
     radius: def.radius,
-    ttl: 0.45,
+    ttl: 0.55,
     ownerId,
   });
 
@@ -409,6 +510,7 @@ function applySpell(state, ownerId, def, x, y) {
     if (!unit.hp || unit.hp <= 0) continue;
     if (dist(unit, { x, y }) <= def.radius) {
       unit.hp -= def.damage;
+      unit.hitFlash = 0.25;
     }
   }
 
@@ -428,11 +530,19 @@ function destroyTower(state, tower, attackerId) {
   tower.alive = false;
   tower.hp = 0;
 
+  state.effects.push({
+    id: `e${state.nextUnitId++}`,
+    type: 'tower-break',
+    x: tower.x,
+    y: tower.y,
+    radius: 2.2,
+    ttl: 0.7,
+    ownerId: attackerId,
+  });
+
   if (attackerId && state.players[attackerId]) {
     state.players[attackerId].crowns = countCrowns(state, attackerId);
   }
-
-  // Usuń jednostki wrogie zbyt blisko? nie — CR zostawia
 
   if (tower.type === 'king') {
     state.winner = attackerId;
@@ -459,7 +569,6 @@ function pickTarget(unit, state) {
   let best = null;
   let bestD = Infinity;
   for (const e of list) {
-    // Latające atakują wszystko; wieże atakują latających
     const d = dist(unit, e.ref);
     if (d < bestD) {
       bestD = d;
@@ -467,6 +576,16 @@ function pickTarget(unit, state) {
     }
   }
   return best;
+}
+
+function faceToward(entity, target) {
+  const dx = target.x - entity.x;
+  const dy = target.y - entity.y;
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    entity.facing = dy >= 0 ? 1 : -1;
+  } else {
+    entity.facing = dx >= 0 ? 1 : -1;
+  }
 }
 
 function moveToward(unit, target, dt) {
@@ -479,46 +598,149 @@ function moveToward(unit, target, dt) {
   unit.y += (target.y - unit.y) * ratio;
   unit.x = Math.max(0.3, Math.min(ARENA_W - 0.3, unit.x));
   unit.y = Math.max(0.3, Math.min(ARENA_H - 0.3, unit.y));
+  faceToward(unit, target);
+  unit.anim = 'walk';
   return true;
 }
 
-function dealDamage(state, attacker, targetRef, kind) {
+function applyHit(state, targetRef, kind, damage, splash, splashOrigin, attackerOwnerId) {
   if (kind === 'tower') {
     const tower = targetRef;
     if (!tower.alive) return;
-    tower.hp -= attacker.damage;
-    if (tower.hp <= 0) destroyTower(state, tower, attacker.ownerId);
+    tower.hp -= damage;
+    if (tower.hp <= 0) destroyTower(state, tower, attackerOwnerId);
     return;
   }
 
   const unit = targetRef;
-  unit.hp -= attacker.damage;
-  if (attacker.splash > 0) {
+  unit.hp -= damage;
+  unit.hitFlash = 0.22;
+  if (splash > 0) {
     for (const other of state.units) {
-      if (other.id === unit.id || other.ownerId === attacker.ownerId || other.hp <= 0) continue;
-      if (dist(other, unit) <= attacker.splash) {
-        other.hp -= attacker.damage * 0.7;
+      if (other.id === unit.id || other.ownerId === attackerOwnerId || other.hp <= 0) continue;
+      if (dist(other, splashOrigin || unit) <= splash) {
+        other.hp -= damage * 0.7;
+        other.hitFlash = 0.18;
       }
     }
   }
 }
 
+function spawnProjectile(state, attacker, target, style) {
+  state.projectiles.push({
+    id: `p${state.nextUnitId++}`,
+    style: style || 'bolt',
+    ownerId: attacker.ownerId,
+    x: attacker.x,
+    y: attacker.y,
+    tx: target.ref.x,
+    ty: target.ref.y,
+    speed: attacker.projectileSpeed || 12,
+    damage: attacker.damage,
+    splash: attacker.splash || 0,
+    targetId: target.ref.id,
+    targetKind: target.kind,
+    flying: !!attacker.flying,
+  });
+}
+
+function resolveTargetById(state, targetId, targetKind) {
+  if (targetKind === 'tower') {
+    const t = state.towers.find((x) => x.id === targetId && x.alive);
+    return t ? { kind: 'tower', ref: t } : null;
+  }
+  const u = state.units.find((x) => x.id === targetId && x.hp > 0);
+  return u ? { kind: 'unit', ref: u } : null;
+}
+
+function tickProjectiles(state, dt) {
+  const next = [];
+  for (const p of state.projectiles) {
+    const target = resolveTargetById(state, p.targetId, p.targetKind);
+    if (target) {
+      p.tx = target.ref.x;
+      p.ty = target.ref.y;
+    }
+
+    const goal = { x: p.tx, y: p.ty };
+    const d = dist(p, goal);
+    const step = p.speed * dt;
+
+    if (d <= step + 0.35 || !target) {
+      if (target) {
+        applyHit(state, target.ref, target.kind, p.damage, p.splash, target.ref, p.ownerId);
+        state.effects.push({
+          id: `e${state.nextUnitId++}`,
+          type: p.style === 'arrow' ? 'impact-arrow' : p.style === 'fire' ? 'impact-fire' : 'impact',
+          x: target.ref.x,
+          y: target.ref.y,
+          radius: 0.8,
+          ttl: 0.28,
+          ownerId: p.ownerId,
+        });
+      }
+      continue;
+    }
+
+    const ratio = step / d;
+    p.x += (goal.x - p.x) * ratio;
+    p.y += (goal.y - p.y) * ratio;
+    next.push(p);
+  }
+  state.projectiles = next;
+  state.units = state.units.filter((u) => u.hp > 0);
+}
+
+function fireAttack(state, entity, target) {
+  faceToward(entity, target.ref);
+  entity.anim = 'attack';
+  entity.attackAnim = 0.28;
+
+  const style = entity.projectile;
+  if (style) {
+    spawnProjectile(state, entity, target, style);
+  } else {
+    applyHit(state, target.ref, target.kind, entity.damage, entity.splash || 0, target.ref, entity.ownerId);
+    state.effects.push({
+      id: `e${state.nextUnitId++}`,
+      type: 'melee',
+      x: (entity.x + target.ref.x) / 2,
+      y: (entity.y + target.ref.y) / 2,
+      radius: 0.7,
+      ttl: 0.2,
+      ownerId: entity.ownerId,
+    });
+  }
+}
+
 function tickCombatEntity(state, entity, dt, isTower) {
   entity.attackCooldown = Math.max(0, (entity.attackCooldown || 0) - dt);
-  const target = pickTarget(entity, state);
-  if (!target) return;
+  entity.attackAnim = Math.max(0, (entity.attackAnim || 0) - dt);
+  if (entity.hitFlash) entity.hitFlash = Math.max(0, entity.hitFlash - dt);
 
+  const target = pickTarget(entity, state);
+  if (!target) {
+    if (!isTower) entity.anim = entity.attackAnim > 0 ? 'attack' : 'idle';
+    return;
+  }
+
+  entity.targetId = target.ref.id;
   const d = dist(entity, target.ref);
   if (d > entity.range) {
     if (!isTower && entity.speed > 0) {
       moveToward(entity, target.ref, dt);
+    } else if (!isTower) {
+      entity.anim = 'idle';
     }
     return;
   }
 
   if (entity.attackCooldown <= 0) {
-    dealDamage(state, entity, target.ref, target.kind);
+    fireAttack(state, entity, target);
     entity.attackCooldown = entity.attackMs / 1000;
+  } else if (!isTower) {
+    entity.anim = entity.attackAnim > 0 ? 'attack' : 'idle';
+    faceToward(entity, target.ref);
   }
 }
 
@@ -537,12 +759,10 @@ function tickArena(state) {
     p.crowns = countCrowns(state, p.id);
   }
 
-  // Efekty wizualne
   state.effects = state.effects
     .map((e) => ({ ...e, ttl: e.ttl - dt }))
     .filter((e) => e.ttl > 0);
 
-  // Jednostki
   for (const unit of state.units) {
     unit.ageMs += TICK_MS;
     if (unit.lifetimeMs && unit.ageMs >= unit.lifetimeMs) {
@@ -553,11 +773,12 @@ function tickArena(state) {
   }
   state.units = state.units.filter((u) => u.hp > 0);
 
-  // Wieże
   for (const tower of state.towers) {
     if (!tower.alive) continue;
     tickCombatEntity(state, tower, dt, true);
   }
+
+  tickProjectiles(state, dt);
 
   if (state.winner) {
     return { finished: true };
@@ -606,18 +827,22 @@ function getPublicArenaState(state, playerId) {
   const opponentId = state.playerIds.find((id) => id !== playerId);
   const opp = state.players[opponentId];
   const side = me.side;
+  const deployZone = getDeployZoneForViewer(state, playerId);
 
   const mapTower = (t) => {
     const pos = toViewerCoords(t, side);
     return {
       id: t.id,
       type: t.type,
+      lane: t.lane,
       mine: t.ownerId === playerId,
       x: pos.x,
       y: pos.y,
       hp: Math.max(0, Math.round(t.hp)),
       maxHp: t.maxHp,
       alive: t.alive,
+      facing: side === 0 ? t.facing : -t.facing,
+      attackAnim: t.attackAnim || 0,
     };
   };
 
@@ -627,6 +852,7 @@ function getPublicArenaState(state, playerId) {
     return {
       id: u.id,
       cardId: u.cardId,
+      avatar: u.avatar || def?.avatar || 'knight',
       emoji: def?.emoji || '❓',
       name: def?.name || u.cardId,
       mine: u.ownerId === playerId,
@@ -636,6 +862,27 @@ function getPublicArenaState(state, playerId) {
       maxHp: u.maxHp,
       flying: !!u.flying,
       kind: u.kind,
+      facing: side === 0 ? u.facing : -u.facing,
+      anim: u.anim || 'idle',
+      attackAnim: u.attackAnim || 0,
+      hitFlash: u.hitFlash || 0,
+    };
+  };
+
+  const mapProjectile = (p) => {
+    const pos = toViewerCoords(p, side);
+    const tip = toViewerCoords({ x: p.tx, y: p.ty }, side);
+    const angle = Math.atan2(tip.y - pos.y, tip.x - pos.x);
+    // Po odwróceniu Y na ekranie kąt też trzeba zmapować w UI — podajemy raw viewer arena coords
+    return {
+      id: p.id,
+      style: p.style,
+      x: pos.x,
+      y: pos.y,
+      tx: tip.x,
+      ty: tip.y,
+      angle,
+      mine: p.ownerId === playerId,
     };
   };
 
@@ -657,6 +904,7 @@ function getPublicArenaState(state, playerId) {
       id: c.id,
       name: c.name,
       emoji: c.emoji,
+      avatar: c.avatar,
       cost: c.cost,
       kind: c.kind,
       playable: me.elixir >= c.cost,
@@ -665,7 +913,13 @@ function getPublicArenaState(state, playerId) {
 
   const nextId = me.deckQueue[0];
   const nextCard = nextId
-    ? { id: nextId, name: CARDS[nextId].name, emoji: CARDS[nextId].emoji, cost: CARDS[nextId].cost }
+    ? {
+      id: nextId,
+      name: CARDS[nextId].name,
+      emoji: CARDS[nextId].emoji,
+      avatar: CARDS[nextId].avatar,
+      cost: CARDS[nextId].cost,
+    }
     : null;
 
   const remainingMs = Math.max(0, state.endsAt - Date.now());
@@ -684,18 +938,13 @@ function getPublicArenaState(state, playerId) {
     enemyName: null,
     towers: state.towers.map(mapTower),
     units: state.units.map(mapUnit),
+    projectiles: state.projectiles.map(mapProjectile),
     effects: state.effects.map(mapEffect),
+    deployZone,
     remainingMs,
     doubleElixir: remainingMs <= DOUBLE_ELIXIR_MS,
     winner: state.winner,
     winReason: state.winReason,
-    cardsCatalog: Object.values(CARDS).map((c) => ({
-      id: c.id,
-      name: c.name,
-      emoji: c.emoji,
-      cost: c.cost,
-      kind: c.kind,
-    })),
   };
 }
 
@@ -704,6 +953,7 @@ module.exports = {
   playCard,
   tickArena,
   getPublicArenaState,
+  canDeployAt,
   TICK_MS,
   CARDS,
   ARENA_W,
