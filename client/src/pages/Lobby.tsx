@@ -29,6 +29,7 @@ function GameOptionButton({
     sudoku: { emoji: '🔢', title: 'Sudoku', desc: 'Kto szybciej ułoży' },
     unos: { emoji: '🃏', title: 'UNOS', desc: 'Pojedynek kart' },
     monopoly: { emoji: '🏠', title: 'Monopoly', desc: 'Inwestycje, losy, 2–6 graczy' },
+    arena: { emoji: '⚔️', title: 'Arena', desc: 'Bitwa kart jak Clash Royale' },
   };
 
   const info = meta[game];
@@ -224,6 +225,7 @@ export default function Lobby() {
             <GameOptionButton game="crossword" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="sudoku" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="unos" playerCount={playerCount} onSelect={selectGame} />
+            <GameOptionButton game="arena" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="monopoly" playerCount={playerCount} onSelect={selectGame} />
           </div>
           <CzolkoGameOption
@@ -274,7 +276,9 @@ export default function Lobby() {
                             ? 'Pierwszy do 5 trafień!'
                             : gameOver.game === 'monopoly'
                               ? 'Ostatni z majątkiem wygrywa!'
-                              : 'Znalazłeś więcej słów!'}
+                              : gameOver.game === 'arena'
+                                ? 'Więcej koron albo zniszczona wieża króla!'
+                                : 'Znalazłeś więcej słów!'}
             </p>
             {isHost ? (
               <button className="btn btn-primary" onClick={() => { clearGameOver(); backToLobby(); }}>

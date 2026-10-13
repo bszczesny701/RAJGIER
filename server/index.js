@@ -65,6 +65,13 @@ const {
   monopolySetPiece,
   getPublicMonopolyState,
 } = require('./games/monopoly');
+const {
+  createArenaState,
+  playCard: arenaPlayCard,
+  tickArena,
+  getPublicArenaState,
+  TICK_MS: ARENA_TICK_MS,
+} = require('./games/arena');
 
 const app = express();
 app.use(cors());
@@ -90,6 +97,7 @@ const GAME_PLAYER_LIMITS = {
   unos: { min: 2, max: 4 },
   czolko: { min: 2, max: 4 },
   monopoly: { min: 2, max: 6 },
+  arena: { min: 2, max: 2 },
 };
 
 function generateRoomCode() {
@@ -258,6 +266,60 @@ function sendMonopolyState(room, player, targetSocket) {
   targetSocket.emit('monopolyUpdate', buildMonopolyPayload(room, player.id));
 }
 
+function buildArenaPayload(room, playerId) {
+  const player = room.players.find((p) => p.id === playerId);
+  const opponent = room.players.find((p) => p.id !== playerId);
+  const payload = getPublicArenaState(room.gameState, playerId);
+  if (!payload) return null;
+  return {
+    ...payload,
+    myName: player?.name,
+    enemyName: opponent?.name,
+  };
+}
+
+function sendArenaState(room, player, targetSocket) {
+  const payload = buildArenaPayload(room, player.id);
+  if (payload) targetSocket.emit('arenaUpdate', payload);
+}
+
+function stopArenaLoop(room) {
+  if (room._arenaInterval) {
+    clearInterval(room._arenaInterval);
+    room._arenaInterval = null;
+  }
+}
+
+function finishArenaIfNeeded(room, result) {
+  if (!result?.finished || !room.gameState) return;
+  stopArenaLoop(room);
+  const winnerId = room.gameState.winner;
+  const draw = winnerId === 'draw';
+  const winner = draw ? null : room.players.find((p) => p.id === winnerId);
+  io.to(room.code).emit('gameOver', {
+    winnerId: draw ? 'draw' : winnerId,
+    winnerName: winner?.name ?? null,
+    game: 'arena',
+    draw,
+  });
+  room.status = 'finished';
+  emitRoomUpdate(room);
+  emitArenaUpdate(room);
+}
+
+function startArenaLoop(room) {
+  stopArenaLoop(room);
+  room._arenaInterval = setInterval(() => {
+    if (!room.gameState || room.game !== 'arena') {
+      stopArenaLoop(room);
+      return;
+    }
+    const result = tickArena(room.gameState);
+    emitArenaUpdate(room);
+    finishArenaIfNeeded(room, result);
+  }, ARENA_TICK_MS);
+}
+
 function emitRoomUpdate(room) {
   io.to(room.code).emit('roomUpdate', getRoomPublic(room));
 }
@@ -311,6 +373,14 @@ function emitMonopolyUpdate(room) {
   }
 }
 
+function emitArenaUpdate(room) {
+  for (const player of room.players) {
+    if (!player.socketId) continue;
+    const payload = buildArenaPayload(room, player.id);
+    if (payload) io.to(player.socketId).emit('arenaUpdate', payload);
+  }
+}
+
 function startGame(room, game, gameOptions = {}) {
   room.game = game;
   room.status = 'playing';
@@ -342,6 +412,11 @@ function startGame(room, game, gameOptions = {}) {
   } else if (game === 'monopoly') {
     room.gameState = createMonopolyState(room.players.map((p) => p.id));
     emitMonopolyUpdate(room);
+  } else if (game === 'arena') {
+    stopArenaLoop(room);
+    room.gameState = createArenaState(room.players.map((p) => p.id));
+    emitArenaUpdate(room);
+    startArenaLoop(room);
   }
 
   emitRoomUpdate(room);
@@ -349,6 +424,7 @@ function startGame(room, game, gameOptions = {}) {
 }
 
 function resetToLobby(room) {
+  stopArenaLoop(room);
   room.status = 'waiting';
   room.game = null;
   room.gameState = null;
@@ -439,7 +515,7 @@ io.on('connection', (socket) => {
     });
     if (!room || !player || room.hostId !== player.id) return;
     if (room.players.length < 2) return;
-    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos', 'czolko', 'monopoly'].includes(game)) return;
+    if (!['battleship', 'wordsearch', 'crossword', 'sudoku', 'unos', 'czolko', 'monopoly', 'arena'].includes(game)) return;
 
     const limits = GAME_PLAYER_LIMITS[game];
     const count = room.players.length;
@@ -1084,6 +1160,26 @@ io.on('connection', (socket) => {
     emitMonopolyUpdate(room);
   });
 
+  socket.on('arenaPlayCard', ({ cardId, x, y, sessionId, roomCode }) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player || room.game !== 'arena' || !room.gameState) return;
+    currentRoom = code;
+
+    const result = arenaPlayCard(room.gameState, player.id, cardId, Number(x), Number(y));
+    if (!result.ok) {
+      socket.emit('error', { message: result.reason });
+      return;
+    }
+
+    emitArenaUpdate(room);
+    if (room.gameState.winner) {
+      finishArenaIfNeeded(room, { finished: true });
+    }
+  });
+
   socket.on('requestGameState', ({ sessionId, roomCode, playerName }) => {
     const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
       sessionId,
@@ -1107,6 +1203,8 @@ io.on('connection', (socket) => {
       sendCzolkoState(room, player, socket);
     } else if (room.game === 'monopoly') {
       sendMonopolyState(room, player, socket);
+    } else if (room.game === 'arena') {
+      sendArenaState(room, player, socket);
     }
   });
 
@@ -1134,6 +1232,7 @@ io.on('connection', (socket) => {
     socket.leave(code);
 
     if (remaining.length === 0) {
+      stopArenaLoop(room);
       rooms.delete(room.code);
       currentRoom = null;
       return;
@@ -1189,6 +1288,8 @@ io.on('connection', (socket) => {
       sendCzolkoState(room, player, socket);
     } else if (room.game === 'monopoly' && room.gameState) {
       sendMonopolyState(room, player, socket);
+    } else if (room.game === 'arena' && room.gameState) {
+      sendArenaState(room, player, socket);
     }
   });
 

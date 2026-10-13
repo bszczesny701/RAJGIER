@@ -9,6 +9,7 @@ const GAMES = [
   { emoji: '🔢', name: 'Sudoku', players: '2' },
   { emoji: '🃏', name: 'UNOS', players: '2–4' },
   { emoji: '🎯', name: 'Czółko', players: '2–4' },
+  { emoji: '⚔️', name: 'Arena', players: '2' },
   { emoji: '🏠', name: 'Monopoly', players: '2–6' },
 ] as const;
 
