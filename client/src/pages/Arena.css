@@ -104,7 +104,7 @@
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.85);
 }
 
-/* ——— 3D-ish arena field ——— */
+/* ——— 3D arena field (R3F) ——— */
 .arena-field {
   position: relative;
   flex: 1;
@@ -116,8 +116,8 @@
   box-shadow:
     0 16px 40px rgba(0, 0, 0, 0.55),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-  perspective: 900px;
   cursor: crosshair;
+  background: #0a1f12;
 }
 
 .arena-field.targeting {
@@ -126,12 +126,50 @@
     0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
-.arena-world {
+.arena-canvas-wrap {
   position: absolute;
   inset: 0;
-  transform-origin: 50% 100%;
-  transform: rotateX(12deg) scale(1.04);
-  transform-style: preserve-3d;
+}
+
+.arena-canvas-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  touch-action: none;
+}
+
+.arena-webgl-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fef3c7;
+  background: #0a1f12;
+  font-weight: 700;
+}
+
+.arena-hp-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.arena-hp-float {
+  position: absolute;
+  transform: translate(-50%, -140%);
+}
+
+.arena-hp-float.tiny {
+  transform: translate(-50%, -120%);
+}
+
+.arena-hp-float.mine .arena-hp-fill {
+  background: linear-gradient(90deg, #38bdf8, #7dd3fc);
+}
+
+.arena-hp-float.enemy .arena-hp-fill {
+  background: linear-gradient(90deg, #f43f5e, #fb7185);
 }
 
 .arena-ground {

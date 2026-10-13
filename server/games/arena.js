@@ -15,6 +15,14 @@ const HAND_SIZE = 4;
 const BRIDGE_PUSH = 4.2;
 const BOTH_TOWERS_PUSH = 5.8;
 
+/** Rzeka i mosty — zsynchronizowane z UI/3D (arena coords). */
+const RIVER_Y = ARENA_H / 2;
+const RIVER_HALF = 0.85;
+const BRIDGES = [
+  { id: 'left', x: ARENA_W * 0.25, halfW: 1.35 },
+  { id: 'right', x: ARENA_W * 0.75, halfW: 1.35 },
+];
+
 const CARDS = {
   rycerz: {
     id: 'rycerz',
@@ -30,6 +38,7 @@ const CARDS = {
     attackMs: 1100,
     splash: 0,
     flying: false,
+    hitsAir: false,
     targetsBuildings: false,
     projectile: null,
     avatar: 'knight',
@@ -48,6 +57,7 @@ const CARDS = {
     attackMs: 900,
     splash: 0,
     flying: false,
+    hitsAir: false,
     targetsBuildings: false,
     projectile: null,
     avatar: 'goblin',
@@ -66,6 +76,7 @@ const CARDS = {
     attackMs: 1000,
     splash: 0,
     flying: false,
+    hitsAir: true,
     targetsBuildings: false,
     projectile: 'arrow',
     projectileSpeed: 14,
@@ -85,6 +96,7 @@ const CARDS = {
     attackMs: 1400,
     splash: 0,
     flying: false,
+    hitsAir: false,
     targetsBuildings: true,
     projectile: null,
     avatar: 'giant',
@@ -103,6 +115,7 @@ const CARDS = {
     attackMs: 1400,
     splash: 1.5,
     flying: false,
+    hitsAir: true,
     targetsBuildings: false,
     projectile: 'bolt',
     projectileSpeed: 11,
@@ -122,6 +135,7 @@ const CARDS = {
     attackMs: 1200,
     splash: 1.2,
     flying: true,
+    hitsAir: true,
     targetsBuildings: false,
     projectile: 'fire',
     projectileSpeed: 10,
@@ -152,6 +166,7 @@ const CARDS = {
     attackMs: 800,
     splash: 0,
     flying: false,
+    hitsAir: true,
     targetsBuildings: false,
     lifetimeMs: 40_000,
     projectile: 'bolt',
@@ -195,6 +210,8 @@ function makeTowers(ownerId, side) {
       attackMs: 1000,
       attackCooldown: 0,
       alive: true,
+      flying: false,
+      hitsAir: true,
       projectile: 'cannon',
       projectileSpeed: 12,
       facing: side === 0 ? 1 : -1,
@@ -214,6 +231,8 @@ function makeTowers(ownerId, side) {
       attackMs: 800,
       attackCooldown: 0,
       alive: true,
+      flying: false,
+      hitsAir: true,
       projectile: 'cannon',
       projectileSpeed: 13,
       facing: side === 0 ? 1 : -1,
@@ -233,6 +252,8 @@ function makeTowers(ownerId, side) {
       attackMs: 800,
       attackCooldown: 0,
       alive: true,
+      flying: false,
+      hitsAir: true,
       projectile: 'cannon',
       projectileSpeed: 13,
       facing: side === 0 ? 1 : -1,
@@ -485,6 +506,7 @@ function playCard(state, playerId, cardId, viewX, viewY) {
       attackCooldown: 0.35,
       splash: def.splash || 0,
       flying: !!def.flying,
+      hitsAir: !!def.hitsAir,
       targetsBuildings: !!def.targetsBuildings,
       kind: def.kind,
       projectile: def.projectile || null,
@@ -496,6 +518,7 @@ function playCard(state, playerId, cardId, viewX, viewY) {
       anim: 'idle',
       attackAnim: 0,
       hitFlash: 0,
+      waypoint: null,
     };
     state.units.push(unit);
   }
@@ -575,21 +598,24 @@ function destroyTower(state, tower, attackerId) {
   }
 }
 
-function enemyEntities(state, ownerId, preferBuildings) {
+function enemyEntities(state, ownerId, preferBuildings, hitsAir) {
   const enemies = [];
   for (const t of state.towers) {
     if (t.alive && t.ownerId !== ownerId) enemies.push({ kind: 'tower', ref: t });
   }
   if (!preferBuildings) {
     for (const u of state.units) {
-      if (u.hp > 0 && u.ownerId !== ownerId) enemies.push({ kind: 'unit', ref: u });
+      if (u.hp <= 0 || u.ownerId === ownerId) continue;
+      if (u.flying && !hitsAir) continue;
+      enemies.push({ kind: 'unit', ref: u });
     }
   }
   return enemies;
 }
 
 function pickTarget(unit, state) {
-  const list = enemyEntities(state, unit.ownerId, unit.targetsBuildings);
+  const hitsAir = !!unit.hitsAir;
+  const list = enemyEntities(state, unit.ownerId, unit.targetsBuildings, hitsAir);
   let best = null;
   let bestD = Infinity;
   for (const e of list) {
@@ -612,22 +638,128 @@ function faceToward(entity, target) {
   }
 }
 
-function moveToward(unit, target, dt) {
-  const d = dist(unit, target);
-  if (d <= unit.range) return false;
+function riverSide(y) {
+  return y < RIVER_Y ? 0 : 1;
+}
+
+function inRiverBand(y) {
+  return Math.abs(y - RIVER_Y) <= RIVER_HALF;
+}
+
+function onBridge(x, y) {
+  if (!inRiverBand(y)) return false;
+  return BRIDGES.some((b) => Math.abs(x - b.x) <= b.halfW);
+}
+
+function pickBridgeForPath(fromX, fromY, toX, toY) {
+  // Prefer most bliższy ścieżce (średnia X start/cel)
+  const midX = (fromX + toX) / 2;
+  let best = BRIDGES[0];
+  let bestD = Infinity;
+  for (const b of BRIDGES) {
+    const d = Math.abs(b.x - midX) + Math.abs(b.x - fromX) * 0.15;
+    if (d < bestD) {
+      bestD = d;
+      best = b;
+    }
+  }
+  return best;
+}
+
+function clampGroundPosition(unit) {
+  unit.x = Math.max(0.3, Math.min(ARENA_W - 0.3, unit.x));
+  unit.y = Math.max(0.3, Math.min(ARENA_H - 0.3, unit.y));
+
+  if (unit.flying) return;
+
+  // Naziemne nie mogą stać w rzece poza mostem — wypchnij na brzeg
+  if (inRiverBand(unit.y) && !onBridge(unit.x, unit.y)) {
+    const nearest = BRIDGES.reduce((a, b) =>
+      Math.abs(b.x - unit.x) < Math.abs(a.x - unit.x) ? b : a
+    );
+    if (Math.abs(unit.x - nearest.x) <= nearest.halfW + 0.4) {
+      unit.x = nearest.x;
+    } else {
+      unit.y = unit.y < RIVER_Y ? RIVER_Y - RIVER_HALF - 0.05 : RIVER_Y + RIVER_HALF + 0.05;
+    }
+  }
+}
+
+function stepTowardPoint(unit, goal, dt, stopRange) {
+  const d = dist(unit, goal);
+  if (d <= stopRange) return true;
   const step = unit.speed * dt;
   if (step <= 0) return false;
   const ratio = Math.min(1, step / d);
-  unit.x += (target.x - unit.x) * ratio;
-  unit.y += (target.y - unit.y) * ratio;
-  unit.x = Math.max(0.3, Math.min(ARENA_W - 0.3, unit.x));
-  unit.y = Math.max(0.3, Math.min(ARENA_H - 0.3, unit.y));
-  faceToward(unit, target);
+  unit.x += (goal.x - unit.x) * ratio;
+  unit.y += (goal.y - unit.y) * ratio;
+  clampGroundPosition(unit);
+  faceToward(unit, goal);
   unit.anim = 'walk';
-  return true;
+  return false;
 }
 
-function applyHit(state, targetRef, kind, damage, splash, splashOrigin, attackerOwnerId) {
+function getGroundWaypoint(unit, target) {
+  if (unit.flying) return null;
+  if (riverSide(unit.y) === riverSide(target.y) && !inRiverBand(unit.y)) return null;
+
+  const bridge = pickBridgeForPath(unit.x, unit.y, target.x, target.y);
+  // Strona startowa względem celu
+  const wantSide = riverSide(target.y);
+  const mySide = riverSide(unit.y);
+  if (mySide === wantSide && !inRiverBand(unit.y)) return null;
+
+  const fromSide = mySide === wantSide ? (wantSide === 0 ? 1 : 0) : mySide;
+  const entryY = fromSide === 0 ? RIVER_Y - RIVER_HALF - 0.2 : RIVER_Y + RIVER_HALF + 0.2;
+  const exitY = fromSide === 0 ? RIVER_Y + RIVER_HALF + 0.2 : RIVER_Y - RIVER_HALF - 0.2;
+  const entry = { x: bridge.x, y: entryY };
+  const exit = { x: bridge.x, y: exitY };
+
+  // Jeszcze po swojej stronie — najpierw do wejścia na most
+  if (!inRiverBand(unit.y) && mySide !== wantSide) {
+    if (dist(unit, entry) > 0.4) return entry;
+    return exit;
+  }
+
+  // W pasie rzeki — trzymaj się mostu, idź do wyjścia
+  if (inRiverBand(unit.y)) {
+    unit.x = bridge.x;
+    if (dist(unit, exit) > 0.35) return exit;
+  }
+
+  return null;
+}
+
+function moveToward(unit, target, dt) {
+  const attackRange = unit.range;
+  // Jeśli w zasięgu ataku i ta sama „ścieżka” (latający albo ta sama strona / na moście) — stop
+  if (dist(unit, target) <= attackRange) {
+    // Naziemne po drugiej stronie rzeki nie atakują „przez wodę” dopóki nie przejdą
+    if (!unit.flying && riverSide(unit.y) !== riverSide(target.y) && !onBridge(unit.x, unit.y)) {
+      // continue toward bridge
+    } else {
+      unit.waypoint = null;
+      return false;
+    }
+  }
+
+  if (unit.flying) {
+    const arrived = stepTowardPoint(unit, target, dt, attackRange);
+    return !arrived;
+  }
+
+  const wp = getGroundWaypoint(unit, target);
+  unit.waypoint = wp;
+  if (wp) {
+    stepTowardPoint(unit, wp, dt, 0.35);
+    return true;
+  }
+
+  const arrived = stepTowardPoint(unit, target, dt, attackRange);
+  return !arrived;
+}
+
+function applyHit(state, targetRef, kind, damage, splash, splashOrigin, attackerOwnerId, hitsAir) {
   if (kind === 'tower') {
     const tower = targetRef;
     if (!tower.alive) return;
@@ -637,11 +769,13 @@ function applyHit(state, targetRef, kind, damage, splash, splashOrigin, attacker
   }
 
   const unit = targetRef;
+  if (unit.flying && !hitsAir) return;
   unit.hp -= damage;
   unit.hitFlash = 0.22;
   if (splash > 0) {
     for (const other of state.units) {
       if (other.id === unit.id || other.ownerId === attackerOwnerId || other.hp <= 0) continue;
+      if (other.flying && !hitsAir) continue;
       if (dist(other, splashOrigin || unit) <= splash) {
         other.hp -= damage * 0.7;
         other.hitFlash = 0.18;
@@ -692,16 +826,20 @@ function tickProjectiles(state, dt) {
 
     if (d <= step + 0.35 || !target) {
       if (target) {
-        applyHit(state, target.ref, target.kind, p.damage, p.splash, target.ref, p.ownerId);
-        state.effects.push({
-          id: `e${state.nextUnitId++}`,
-          type: p.style === 'arrow' ? 'impact-arrow' : p.style === 'fire' ? 'impact-fire' : 'impact',
-          x: target.ref.x,
-          y: target.ref.y,
-          radius: 0.8,
-          ttl: 0.28,
-          ownerId: p.ownerId,
-        });
+        // Pociski dystansowe zawsze mogą trafić powietrze (łuk/bolt/ogień/armata)
+        const hitsAir = p.style !== 'melee';
+        if (!(target.kind === 'unit' && target.ref.flying && !hitsAir)) {
+          applyHit(state, target.ref, target.kind, p.damage, p.splash, target.ref, p.ownerId, hitsAir);
+          state.effects.push({
+            id: `e${state.nextUnitId++}`,
+            type: p.style === 'arrow' ? 'impact-arrow' : p.style === 'fire' ? 'impact-fire' : 'impact',
+            x: target.ref.x,
+            y: target.ref.y,
+            radius: 0.8,
+            ttl: 0.28,
+            ownerId: p.ownerId,
+          });
+        }
       }
       continue;
     }
@@ -715,16 +853,25 @@ function tickProjectiles(state, dt) {
   state.units = state.units.filter((u) => u.hp > 0);
 }
 
+function canAttackAcross(attacker, targetRef) {
+  if (attacker.flying) return true;
+  // Naziemne melee/ranged mogą atakować tylko gdy nie muszą „strzelać przez rzekę”
+  // (poza byciem na moście). Dalekosiężne i tak celują — CR pozwala łucznikom bić przez rzekę.
+  if (attacker.projectile) return true;
+  if (riverSide(attacker.y) === riverSide(targetRef.y)) return true;
+  return onBridge(attacker.x, attacker.y);
+}
+
 function fireAttack(state, entity, target) {
   faceToward(entity, target.ref);
   entity.anim = 'attack';
   entity.attackAnim = entity.projectile === 'fire' ? 0.45 : 0.32;
   entity.attackTargetX = target.ref.x;
   entity.attackTargetY = target.ref.y;
+  const hitsAir = !!entity.hitsAir;
 
   const style = entity.projectile;
   if (style === 'fire') {
-    // Smok: widoczny strumień ognia + pocisk
     state.effects.push({
       id: `e${state.nextUnitId++}`,
       type: 'dragon-breath',
@@ -740,7 +887,16 @@ function fireAttack(state, entity, target) {
   } else if (style) {
     spawnProjectile(state, entity, target, style);
   } else {
-    applyHit(state, target.ref, target.kind, entity.damage, entity.splash || 0, target.ref, entity.ownerId);
+    applyHit(
+      state,
+      target.ref,
+      target.kind,
+      entity.damage,
+      entity.splash || 0,
+      target.ref,
+      entity.ownerId,
+      hitsAir,
+    );
     state.effects.push({
       id: `e${state.nextUnitId++}`,
       type: 'melee',
@@ -766,7 +922,9 @@ function tickCombatEntity(state, entity, dt, isTower) {
 
   entity.targetId = target.ref.id;
   const d = dist(entity, target.ref);
-  if (d > entity.range) {
+  const inRange = d <= entity.range && canAttackAcross(entity, target.ref);
+
+  if (!inRange) {
     if (!isTower && entity.speed > 0) {
       moveToward(entity, target.ref, dt);
     } else if (!isTower) {
@@ -908,6 +1066,7 @@ function getPublicArenaState(state, playerId) {
       hp: Math.max(0, Math.round(u.hp)),
       maxHp: u.maxHp,
       flying: !!u.flying,
+      hitsAir: !!u.hitsAir,
       kind: u.kind,
       facing: side === 0 ? u.facing : -u.facing,
       anim: u.anim || 'idle',
@@ -1015,4 +1174,7 @@ module.exports = {
   CARDS,
   ARENA_W,
   ARENA_H,
+  RIVER_Y,
+  RIVER_HALF,
+  BRIDGES,
 };

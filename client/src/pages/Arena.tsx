@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { ArenaProjectileVisual, ArenaSprite, type AvatarId } from './ArenaSprites';
+import { ArenaSprite, type AvatarId } from './ArenaSprites';
 import './Arena.css';
+
+const ArenaScene = lazy(() => import('../components/arena3d/ArenaScene'));
 
 interface ArenaCard {
   id: string;
@@ -149,8 +151,6 @@ export default function Arena() {
 
   const [state, setState] = useState<ArenaState | null>(null);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
-  const fieldRef = useRef<HTMLDivElement>(null);
   const isHost = room?.hostId === playerId;
 
   useEffect(() => {
@@ -185,19 +185,6 @@ export default function Arena() {
     top: `${((h - y) / h) * 100}%`,
   });
 
-  const pointerToArena = (clientX: number, clientY: number) => {
-    const el = fieldRef.current;
-    if (!el || !state) return null;
-    const rect = el.getBoundingClientRect();
-    const nx = (clientX - rect.left) / rect.width;
-    const ny = (clientY - rect.top) / rect.height;
-    if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return null;
-    return {
-      x: nx * state.arenaW,
-      y: (1 - ny) * state.arenaH,
-    };
-  };
-
   const deploy = (x: number, y: number) => {
     if (!socket || !selectedCard || !state) return;
     const card = state.hand.find((c) => c.id === selectedCard);
@@ -212,19 +199,6 @@ export default function Arena() {
       roomCode,
     });
     setSelectedCard(null);
-    setHoverPos(null);
-  };
-
-  const onFieldPointer = (e: ReactPointerEvent) => {
-    const pos = pointerToArena(e.clientX, e.clientY);
-    if (!pos) return;
-    if (e.type === 'pointermove' && selectedCard) {
-      setHoverPos(pos);
-      return;
-    }
-    if (e.type === 'pointerup' && selectedCard) {
-      deploy(pos.x, pos.y);
-    }
   };
 
   const elixirFill = useMemo(() => {
@@ -270,174 +244,66 @@ export default function Arena() {
             </div>
           </header>
 
-          <div
-            className={`arena-field${selectedCard ? ' targeting' : ''}`}
-            ref={fieldRef}
-            onPointerDown={onFieldPointer}
-            onPointerMove={onFieldPointer}
-            onPointerUp={onFieldPointer}
-            onPointerLeave={() => setHoverPos(null)}
-          >
-            <div className="arena-world">
-              <div className="arena-ground" />
-              <div className="arena-river" />
-              <div className="arena-bridges" aria-hidden>
-                <span />
-                <span />
-              </div>
+          <div className={`arena-field${selectedCard ? ' targeting' : ''}`}>
+            <Suspense fallback={<div className="arena-webgl-fallback">Ładowanie 3D…</div>}>
+              <ArenaScene
+                arenaW={state.arenaW}
+                arenaH={state.arenaH}
+                units={state.units}
+                towers={state.towers}
+                projectiles={state.projectiles}
+                effects={state.effects}
+                targeting={!!selectedCard}
+                onPointerDeploy={deploy}
+              />
+            </Suspense>
 
-              {/* Podgląd strefy deploy */}
-              {selectedCard && state.hand.find((c) => c.id === selectedCard)?.kind !== 'spell' && (
-                <>
-                  <div
-                    className="arena-zone left"
-                    style={{
-                      height: `${(state.deployZone.leftMaxY / state.arenaH) * 100}%`,
-                    }}
-                  />
-                  <div
-                    className="arena-zone right"
-                    style={{
-                      height: `${(state.deployZone.rightMaxY / state.arenaH) * 100}%`,
-                    }}
-                  />
-                </>
-              )}
-
-              {state.towers.map((t) => {
-                if (!t.alive && t.type !== 'king') {
-                  const rubble = toPercent(t.x, t.y, state.arenaW, state.arenaH);
-                  return (
-                    <div key={t.id} className="arena-rubble" style={rubble}>
-                      <span />
-                    </div>
-                  );
-                }
-                const style = {
-                  ...toPercent(t.x, t.y, state.arenaW, state.arenaH),
-                  zIndex: 10 + Math.round(state.arenaH - t.y),
-                };
-                return (
-                  <div
-                    key={t.id}
-                    className={`arena-entity arena-tower-wrap ${t.type}${t.mine ? ' mine' : ' enemy'}${t.alive ? '' : ' dead'}`}
-                    style={style}
-                  >
-                    <ArenaSprite
-                      avatar={(t.type === 'king' ? 'king' : 'princess') as AvatarId}
-                      mine={t.mine}
-                      size={t.type === 'king' ? 'xl' : 'lg'}
-                      facing={t.facing ?? 1}
-                      attackAnim={t.attackAnim ?? 0}
-                    />
-                    {t.alive && (
-                      <div className="arena-hp">
-                        <div className="arena-hp-fill" style={{ width: pct(t.hp, t.maxHp) }} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {state.units.map((u) => {
-                const style = {
-                  ...toPercent(u.x, u.y, state.arenaW, state.arenaH),
-                  zIndex: 20 + Math.round(state.arenaH - u.y) + (u.flying ? 40 : 0),
-                };
-                return (
-                  <div
-                    key={u.id}
-                    className={`arena-entity arena-unit-wrap${u.mine ? ' mine' : ' enemy'}${u.flying ? ' flying' : ''}`}
-                    style={style}
-                    title={u.name}
-                  >
-                    <ArenaSprite
-                      avatar={u.avatar as AvatarId}
-                      mine={u.mine}
-                      size={u.avatar === 'giant' ? 'lg' : u.avatar === 'goblin' ? 'sm' : 'md'}
-                      anim={u.anim}
-                      facing={u.facing}
-                      attackAnim={u.attackAnim}
-                      hitFlash={u.hitFlash}
-                    />
-                    <div className="arena-hp tiny">
-                      <div className="arena-hp-fill" style={{ width: pct(u.hp, u.maxHp) }} />
-                    </div>
-                  </div>
-                );
-              })}
-
-              {state.projectiles.map((p) => {
-                const style = {
-                  ...toPercent(p.x, p.y, state.arenaW, state.arenaH),
-                  zIndex: 80,
-                };
-                return (
-                  <div key={p.id} className="arena-entity arena-proj-wrap" style={style}>
-                    <ArenaProjectileVisual style={p.style} angle={p.angle} />
-                  </div>
-                );
-              })}
-
-              {state.effects.map((e) => {
-                if (e.type === 'dragon-breath' && e.tx != null && e.ty != null) {
-                  const from = toPercent(e.x, e.y, state.arenaW, state.arenaH);
-                  const dx = e.tx - e.x;
-                  const dy = e.ty - e.y;
-                  const len = Math.sqrt(dx * dx + dy * dy);
-                  const deg = (-Math.atan2(dy, dx) * 180) / Math.PI;
-                  return (
-                    <div
-                      key={e.id}
-                      className="arena-breath"
-                      style={{
-                        left: from.left,
-                        top: from.top,
-                        width: `${(len / state.arenaW) * 100}%`,
-                        opacity: Math.min(1, e.ttl * 2.5),
-                        transform: `translate(0, -50%) rotate(${deg}deg)`,
-                        zIndex: 75,
-                      }}
-                    />
-                  );
-                }
-                const style = {
-                  ...toPercent(e.x, e.y, state.arenaW, state.arenaH),
-                  width: `${(e.radius * 2 / state.arenaW) * 100}%`,
-                  height: `${(e.radius * 2 / state.arenaH) * 100}%`,
-                  opacity: Math.min(1, e.ttl * 2.2),
-                  zIndex: 70,
-                };
-                return (
-                  <div
-                    key={e.id}
-                    className={`arena-effect fx-${e.type}`}
-                    style={style}
-                  />
-                );
-              })}
-
-              {selectedCard && hoverPos && (
+            {/* HP overlay (2D) */}
+            <div className="arena-hp-overlay" aria-hidden>
+              {state.towers.filter((t) => t.alive).map((t) => (
                 <div
-                  className={`arena-ghost${canPlaceAt(state, selectedCard, hoverPos.x, hoverPos.y) ? ' ok' : ' bad'}`}
-                  style={toPercent(hoverPos.x, hoverPos.y, state.arenaW, state.arenaH)}
+                  key={`hp-${t.id}`}
+                  className={`arena-hp-float${t.mine ? ' mine' : ' enemy'}`}
+                  style={toPercent(t.x, t.y, state.arenaW, state.arenaH)}
                 >
-                  <ArenaSprite
-                    avatar={(state.hand.find((c) => c.id === selectedCard)?.avatar || 'knight') as AvatarId}
-                    size="sm"
-                    mine
-                  />
+                  <div className="arena-hp">
+                    <div className="arena-hp-fill" style={{ width: pct(t.hp, t.maxHp) }} />
+                  </div>
                 </div>
-              )}
+              ))}
+              {state.units.map((u) => (
+                <div
+                  key={`hp-${u.id}`}
+                  className={`arena-hp-float tiny${u.mine ? ' mine' : ' enemy'}`}
+                  style={toPercent(u.x, u.y, state.arenaW, state.arenaH)}
+                >
+                  <div className="arena-hp tiny">
+                    <div className="arena-hp-fill" style={{ width: pct(u.hp, u.maxHp) }} />
+                  </div>
+                </div>
+              ))}
             </div>
+
+            {selectedCard && state.hand.find((c) => c.id === selectedCard)?.kind !== 'spell' && (
+              <>
+                <div
+                  className="arena-zone left"
+                  style={{ height: `${(state.deployZone.leftMaxY / state.arenaH) * 100}%` }}
+                />
+                <div
+                  className="arena-zone right"
+                  style={{ height: `${(state.deployZone.rightMaxY / state.arenaH) * 100}%` }}
+                />
+              </>
+            )}
 
             {selectedCard && (
               <p className="arena-hint">
                 {state.hand.find((c) => c.id === selectedCard)?.kind === 'spell'
                   ? 'Dotknij arenę, by rzucić czar'
                   : zoneExpanded
-                    ? 'Strefa poszerzona po zniszczeniu wieży — wystaw jednostkę'
-                    : 'Dotknij swoją połowę, by wystawić jednostkę'}
+                    ? 'Strefa poszerzona — wystaw za mostem w otwartym pasie'
+                    : 'Dotknij swoją połowę / most, by wystawić jednostkę'}
               </p>
             )}
           </div>
