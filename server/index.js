@@ -72,6 +72,14 @@ const {
   getPublicArenaState,
   TICK_MS: ARENA_TICK_MS,
 } = require('./games/arena');
+const {
+  isBotGame,
+  ensureBot,
+  removeBots,
+  clearBotTimers,
+  humanCount,
+  scheduleBots,
+} = require('./bots');
 
 const app = express();
 app.use(cors());
@@ -113,11 +121,98 @@ function generateRoomCode() {
 function getRoomPublic(room) {
   return {
     code: room.code,
-    players: room.players.map((p) => ({ id: p.id, name: p.name })),
+    players: room.players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      isBot: !!p.isBot,
+    })),
     hostId: room.hostId,
     status: room.status,
     game: room.game,
   };
+}
+
+function getBotHooks() {
+  return {
+    afterBotAction(room) {
+      emitGameUpdate(room);
+      checkBotGameOver(room);
+    },
+    onBattleshipPlaced(room, playerIds) {
+      if (allPlaced(room.gameState, playerIds)) {
+        startBattle(room.gameState, playerIds);
+      }
+    },
+    onBattleshipShot() {
+      // emit + gameOver w afterBotAction / checkBotGameOver
+    },
+  };
+}
+
+function emitGameUpdate(room) {
+  if (!room?.game) return;
+  if (room.game === 'battleship') emitBattleshipUpdate(room);
+  else if (room.game === 'unos') emitUnosUpdate(room);
+  else if (room.game === 'arena') emitArenaUpdate(room);
+  else if (room.game === 'monopoly') emitMonopolyUpdate(room);
+  else if (room.game === 'wordsearch') emitWordSearchUpdate(room);
+  else if (room.game === 'crossword') emitCrosswordUpdate(room);
+  else if (room.game === 'sudoku') emitSudokuUpdate(room);
+  else if (room.game === 'czolko') emitCzolkoUpdate(room);
+}
+
+function checkBotGameOver(room) {
+  if (!room?.gameState || room.status !== 'playing') return;
+
+  if (room.game === 'battleship' && room.gameState.winner) {
+    const winner = room.players.find((p) => p.id === room.gameState.winner);
+    io.to(room.code).emit('gameOver', {
+      winnerId: room.gameState.winner,
+      winnerName: winner?.name,
+      game: 'battleship',
+    });
+    room.status = 'finished';
+    clearBotTimers(room);
+    emitRoomUpdate(room);
+    return;
+  }
+
+  if (room.game === 'unos' && room.gameState.winner) {
+    const winner = room.players.find((p) => p.id === room.gameState.winner);
+    io.to(room.code).emit('gameOver', {
+      winnerId: room.gameState.winner,
+      winnerName: winner?.name,
+      game: 'unos',
+    });
+    room.status = 'finished';
+    clearBotTimers(room);
+    emitRoomUpdate(room);
+    return;
+  }
+
+  if (room.game === 'arena' && room.gameState.winner) {
+    finishArenaIfNeeded(room, { finished: true });
+    clearBotTimers(room);
+    return;
+  }
+
+  if (room.game === 'monopoly' && room.gameState.winner) {
+    const draw = room.gameState.winner === 'draw';
+    const winner = draw ? null : room.players.find((p) => p.id === room.gameState.winner);
+    io.to(room.code).emit('gameOver', {
+      winnerId: draw ? 'draw' : room.gameState.winner,
+      winnerName: winner?.name ?? null,
+      game: 'monopoly',
+      draw,
+    });
+    room.status = 'finished';
+    clearBotTimers(room);
+    emitRoomUpdate(room);
+  }
+}
+
+function nudgeBots(room) {
+  scheduleBots(room, getBotHooks());
 }
 
 function getOpponent(room, playerId) {
@@ -293,6 +388,7 @@ function stopArenaLoop(room) {
 function finishArenaIfNeeded(room, result) {
   if (!result?.finished || !room.gameState) return;
   stopArenaLoop(room);
+  clearBotTimers(room);
   const winnerId = room.gameState.winner;
   const draw = winnerId === 'draw';
   const winner = draw ? null : room.players.find((p) => p.id === winnerId);
@@ -421,10 +517,13 @@ function startGame(room, game, gameOptions = {}) {
 
   emitRoomUpdate(room);
   io.to(room.code).emit('gameStart', { game });
+  nudgeBots(room);
 }
 
 function resetToLobby(room) {
   stopArenaLoop(room);
+  clearBotTimers(room);
+  removeBots(room);
   room.status = 'waiting';
   room.game = null;
   room.gameState = null;
@@ -461,6 +560,7 @@ io.on('connection', (socket) => {
     };
 
     rooms.set(code, room);
+    room.players[0].isBot = false;
     currentRoom = bindSocketToRoom(socket, room, room.players[0]);
 
     callback?.({ success: true, roomCode: code, playerId: sessionId });
@@ -483,13 +583,23 @@ io.on('connection', (socket) => {
 
     const existing = findPlayer(room, { sessionId, playerName });
     if (existing) {
+      if (existing.isBot) {
+        callback?.({ success: false, error: 'To konto bota' });
+        return;
+      }
       currentRoom = bindSocketToRoom(socket, room, existing);
       callback?.({ success: true, roomCode: code, playerId: existing.id });
       emitRoomUpdate(room);
       return;
     }
 
-    if (room.players.length >= MAX_ROOM_PLAYERS) {
+    // Nowy człowiek — usuń boty z lobby (grają ludzie)
+    if (room.status === 'waiting') {
+      removeBots(room);
+    }
+
+    const seats = room.players.length;
+    if (seats >= MAX_ROOM_PLAYERS) {
       callback?.({ success: false, error: `Pokój jest pełny (max ${MAX_ROOM_PLAYERS} graczy)` });
       return;
     }
@@ -500,12 +610,48 @@ io.on('connection', (socket) => {
     }
 
     const name = (playerName || 'Gracz').trim().slice(0, 20) || 'Gracz';
-    const player = { id: sessionId, name, socketId: socket.id };
+    const player = { id: sessionId, name, socketId: socket.id, isBot: false };
     room.players.push(player);
     currentRoom = bindSocketToRoom(socket, room, player);
 
     callback?.({ success: true, roomCode: code, playerId: sessionId });
     emitRoomUpdate(room);
+  });
+
+  socket.on('startWithBot', ({ game, sessionId, roomCode, gameOptions }, callback) => {
+    const { room, player, roomCode: code } = resolvePlayerContext(socket, currentRoom, {
+      sessionId,
+      roomCode,
+    });
+    if (!room || !player) {
+      callback?.({ success: false, error: 'Brak pokoju' });
+      return;
+    }
+    if (room.hostId !== player.id) {
+      callback?.({ success: false, error: 'Tylko gospodarz' });
+      return;
+    }
+    if (room.status !== 'waiting') {
+      callback?.({ success: false, error: 'Pokój nie jest w lobby' });
+      return;
+    }
+    if (!isBotGame(game)) {
+      callback?.({ success: false, error: 'Ta gra nie obsługuje bota' });
+      return;
+    }
+    if (humanCount(room) !== 1) {
+      callback?.({ success: false, error: 'Bot tylko gdy jesteś sam w pokoju' });
+      return;
+    }
+
+    currentRoom = code;
+    // Zostaw tylko hosta + bota
+    room.players = room.players.filter((p) => !p.isBot && p.id === player.id);
+    ensureBot(room);
+    emitRoomUpdate(room);
+
+    startGame(room, game, {});
+    callback?.({ success: true });
   });
 
   socket.on('selectGame', ({ game, sessionId, roomCode, gameOptions }) => {
@@ -563,6 +709,7 @@ io.on('connection', (socket) => {
     }
 
     emitBattleshipUpdate(room);
+    nudgeBots(room);
   });
 
   socket.on('shoot', ({ row, col, sessionId, roomCode }) => {
@@ -591,7 +738,10 @@ io.on('connection', (socket) => {
         game: 'battleship',
       });
       room.status = 'finished';
+      clearBotTimers(room);
       emitRoomUpdate(room);
+    } else {
+      nudgeBots(room);
     }
   });
 
@@ -718,7 +868,10 @@ io.on('connection', (socket) => {
         game: 'unos',
       });
       room.status = 'finished';
+      clearBotTimers(room);
       emitRoomUpdate(room);
+    } else {
+      nudgeBots(room);
     }
   });
 
@@ -748,7 +901,10 @@ io.on('connection', (socket) => {
         game: 'unos',
       });
       room.status = 'finished';
+      clearBotTimers(room);
       emitRoomUpdate(room);
+    } else {
+      nudgeBots(room);
     }
   });
 
@@ -769,6 +925,7 @@ io.on('connection', (socket) => {
     }
 
     emitUnosUpdate(room);
+    nudgeBots(room);
   });
 
   socket.on('unosCallUnos', ({ sessionId, roomCode }) => {
@@ -786,6 +943,7 @@ io.on('connection', (socket) => {
     }
 
     emitUnosUpdate(room);
+    nudgeBots(room);
   });
 
   socket.on('unosPassTurn', ({ sessionId, roomCode }) => {
@@ -805,6 +963,7 @@ io.on('connection', (socket) => {
     }
 
     emitUnosUpdate(room);
+    nudgeBots(room);
   });
 
   socket.on('czolkoAskQuestion', ({ text, sessionId, roomCode }) => {
@@ -932,6 +1091,7 @@ io.on('connection', (socket) => {
       game: 'monopoly',
     });
     room.status = 'finished';
+    clearBotTimers(room);
     emitRoomUpdate(room);
   }
 
@@ -951,6 +1111,7 @@ io.on('connection', (socket) => {
 
     emitMonopolyUpdate(room);
     finishMonopolyIfWon(room);
+    if (room.status === 'playing') nudgeBots(room);
   }
 
   const currentRoomRef = { get value() { return currentRoom; }, set value(v) { currentRoom = v; } };
@@ -1086,6 +1247,7 @@ io.on('connection', (socket) => {
 
     emitMonopolyUpdate(room);
     finishMonopolyIfWon(room);
+    if (room.status === 'playing') nudgeBots(room);
   });
 
   socket.on('monopolyTradePropose', (payload) => {
@@ -1177,6 +1339,8 @@ io.on('connection', (socket) => {
     emitArenaUpdate(room);
     if (room.gameState.winner) {
       finishArenaIfNeeded(room, { finished: true });
+    } else {
+      nudgeBots(room);
     }
   });
 
@@ -1233,6 +1397,7 @@ io.on('connection', (socket) => {
 
     if (remaining.length === 0) {
       stopArenaLoop(room);
+      clearBotTimers(room);
       rooms.delete(room.code);
       currentRoom = null;
       return;

@@ -17,6 +17,7 @@ function getSessionId(): string {
 export interface Player {
   id: string;
   name: string;
+  isBot?: boolean;
 }
 
 export interface Room {
@@ -60,6 +61,9 @@ interface GameContextValue {
     game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly' | 'arena',
     options?: CzolkoGameOptions,
   ) => void;
+  startWithBot: (
+    game: 'battleship' | 'unos' | 'arena' | 'monopoly',
+  ) => Promise<boolean>;
   backToLobby: () => void;
   leaveRoom: () => void;
   requestGameState: () => void;
@@ -204,6 +208,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, [socket, sessionId, roomCode]);
 
+  const startWithBot = useCallback((
+    game: 'battleship' | 'unos' | 'arena' | 'monopoly',
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!socket) return resolve(false);
+      socket.emit('startWithBot', { game, sessionId, roomCode }, (res: {
+        success: boolean;
+        error?: string;
+      }) => {
+        if (res?.success) {
+          resolve(true);
+        } else {
+          setError(res?.error || 'Nie udało się uruchomić gry z botem');
+          resolve(false);
+        }
+      });
+    });
+  }, [socket, sessionId, roomCode]);
+
   const backToLobby = useCallback(() => {
     clearGameOver();
     socket?.emit('backToLobby', { sessionId, roomCode });
@@ -238,6 +261,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         createRoom,
         joinRoom,
         selectGame,
+        startWithBot,
         backToLobby,
         leaveRoom,
         requestGameState,

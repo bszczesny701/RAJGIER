@@ -127,12 +127,25 @@ function CzolkoGameOption({
   );
 }
 
+const BOT_GAMES: {
+  id: 'battleship' | 'unos' | 'arena' | 'monopoly';
+  emoji: string;
+  title: string;
+  desc: string;
+}[] = [
+  { id: 'battleship', emoji: '🚢', title: 'Statki', desc: 'vs Bot' },
+  { id: 'unos', emoji: '🃏', title: 'UNOS', desc: 'vs Bot' },
+  { id: 'arena', emoji: '⚔️', title: 'Arena', desc: 'vs Bot' },
+  { id: 'monopoly', emoji: '🏠', title: 'Monopoly', desc: 'vs Bot' },
+];
+
 export default function Lobby() {
   const navigate = useNavigate();
   const {
     room,
     playerId,
     selectGame,
+    startWithBot,
     error,
     clearError,
     gameOver,
@@ -140,10 +153,25 @@ export default function Lobby() {
     backToLobby,
   } = useGame();
 
+  const [botLoading, setBotLoading] = useState<string | null>(null);
+
   const isHost = room?.hostId === playerId;
   const playerCount = room?.players.length ?? 0;
+  const humanCount = room?.players.filter((p) => !p.isBot).length ?? 0;
   const canStart = room && playerCount >= 2;
+  const canPlayBot = isHost && humanCount === 1 && room?.status === 'waiting';
   const gameRoute = getGameRoute(room?.game);
+
+  const handleBotGame = async (game: 'battleship' | 'unos' | 'arena' | 'monopoly') => {
+    setBotLoading(game);
+    clearError();
+    const ok = await startWithBot(game);
+    setBotLoading(null);
+    if (ok) {
+      const route = getGameRoute(game);
+      if (route) navigate(route);
+    }
+  };
 
   useEffect(() => {
     if (!room) {
@@ -193,16 +221,17 @@ export default function Lobby() {
         <ul className="player-list">
           {room.players.map((p) => (
             <li key={p.id}>
-              <div className="player-avatar">{p.name[0]?.toUpperCase()}</div>
+              <div className="player-avatar">{p.isBot ? '🤖' : p.name[0]?.toUpperCase()}</div>
               <span>{p.name}</span>
-              {p.id === room.hostId && (
+              {p.isBot && <span className="lobby-host-badge">bot</span>}
+              {p.id === room.hostId && !p.isBot && (
                 <span className="lobby-host-badge">host</span>
               )}
             </li>
           ))}
-          {playerCount < 2 && (
+          {humanCount < 2 && room.status === 'waiting' && (
             <li className="lobby-hint">
-              Oczekiwanie na graczy (min. 2)…
+              Czekaj na gracza albo zagraj z botem poniżej…
             </li>
           )}
           {playerCount >= 2 && playerCount < MAX_ROOM_PLAYERS && (
@@ -212,6 +241,31 @@ export default function Lobby() {
           )}
         </ul>
       </section>
+
+      {canPlayBot && (
+        <section className="card lobby-bot-card">
+          <h3 className="lobby-section-title">Graj z botem</h3>
+          <p className="lobby-section-sub">
+            Sam w pokoju · AI rusza automatycznie
+          </p>
+          <div className="game-grid">
+            {BOT_GAMES.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className="game-option"
+                disabled={!!botLoading}
+                onClick={() => handleBotGame(g.id)}
+              >
+                <span className="emoji">{g.emoji}</span>
+                <h3>{g.title}</h3>
+                <p>{botLoading === g.id ? 'Start…' : g.desc}</p>
+                <span className="game-option-range">1 gracz + bot</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {canStart && isHost && room.status === 'waiting' && (
         <section className="card">
