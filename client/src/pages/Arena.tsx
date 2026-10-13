@@ -221,7 +221,7 @@ export default function Arena() {
 
       {!state ? (
         <div className="arena-loading">
-          <ArenaSprite avatar="knight" size="lg" anim="walk" />
+          <CardThumb avatar="knight" alt="" className="arena-loading-thumb" />
           <p>Ładowanie areny…</p>
         </div>
       ) : (

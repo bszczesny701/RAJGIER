@@ -24,12 +24,16 @@ interface ModelProps {
   attackTarget?: { x: number; z: number } | null;
 }
 
-/** Shared low-seg geometries — one allocation for the whole fight. */
+/** Shared low-seg geometries — one allocation for the whole fight.
+ *  Never let R3F dispose them on unmount (would black out the scene). */
 const box = new THREE.BoxGeometry(1, 1, 1);
 const cyl6 = new THREE.CylinderGeometry(0.5, 0.5, 1, 6);
 const cyl8 = new THREE.CylinderGeometry(0.5, 0.5, 1, 8);
 const cone6 = new THREE.ConeGeometry(0.5, 1, 6);
 const sphere8 = new THREE.SphereGeometry(0.5, 8, 8);
+for (const g of [box, cyl6, cyl8, cone6, sphere8]) {
+  g.dispose = () => undefined;
+}
 
 function Mat({
   color,
