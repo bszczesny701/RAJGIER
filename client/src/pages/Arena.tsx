@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
-import { ArenaSprite, type AvatarId } from './ArenaSprites';
+import CardThumb from '../components/arena3d/CardThumb';
 import './Arena.css';
 
 const ArenaScene = lazy(() => import('../components/arena3d/ArenaScene'));
@@ -312,11 +312,7 @@ export default function Arena() {
             <div className="arena-next" title="Następna karta">
               {state.nextCard ? (
                 <>
-                  <ArenaSprite
-                    avatar={(state.nextCard.avatar || 'knight') as AvatarId}
-                    size="sm"
-                    mine
-                  />
+                  <CardThumb avatar={state.nextCard.avatar || 'knight'} alt={state.nextCard.name} />
                   <span className="arena-next-label">Dalej</span>
                 </>
               ) : (
@@ -338,11 +334,7 @@ export default function Arena() {
                   >
                     <span className="arena-card-cost">{card.cost}</span>
                     <div className="arena-card-art">
-                      <ArenaSprite
-                        avatar={(card.avatar || 'knight') as AvatarId}
-                        size="sm"
-                        mine
-                      />
+                      <CardThumb avatar={card.avatar || 'knight'} alt={card.name} />
                     </div>
                     <span className="arena-card-name">{card.name}</span>
                   </button>

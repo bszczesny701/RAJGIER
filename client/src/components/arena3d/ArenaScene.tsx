@@ -86,44 +86,44 @@ function ArenaGround() {
 
   return (
     <group>
-      {/* grass halves */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, h * 0.25]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, h * 0.25]}>
         <planeGeometry args={[w, h * 0.5 - riverDepth]} />
-        <meshStandardMaterial color="#15803d" />
+        <meshBasicMaterial color="#15803d" />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -h * 0.25]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -h * 0.25]}>
         <planeGeometry args={[w, h * 0.5 - riverDepth]} />
-        <meshStandardMaterial color="#166534" />
+        <meshBasicMaterial color="#166534" />
       </mesh>
-      {/* river */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, riverZ]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, riverZ]}>
         <planeGeometry args={[w, riverDepth]} />
-        <meshStandardMaterial color="#2563eb" metalness={0.3} roughness={0.25} />
+        <meshBasicMaterial color="#1d4ed8" />
       </mesh>
-      {/* bridges */}
       {BRIDGES.map((b) => {
         const { x, z } = arenaToWorld(b.x, RIVER_Y);
         return (
-          <mesh
-            key={b.id}
-            position={[x, 0.08, z]}
-            castShadow
-            receiveShadow
-          >
+          <mesh key={b.id} position={[x, 0.08, z]}>
             <boxGeometry args={[b.halfW * 2 * WORLD_SCALE, 0.12, riverDepth + 0.15]} />
-            <meshStandardMaterial color="#a16207" roughness={0.7} />
+            <meshLambertMaterial color="#a16207" flatShading />
           </mesh>
         );
       })}
-      {/* bank rails */}
-      <mesh position={[0, 0.04, riverZ + riverDepth / 2 + 0.05]}>
-        <boxGeometry args={[w, 0.06, 0.08]} />
-        <meshStandardMaterial color="#14532d" />
-      </mesh>
-      <mesh position={[0, 0.04, riverZ - riverDepth / 2 - 0.05]}>
-        <boxGeometry args={[w, 0.06, 0.08]} />
-        <meshStandardMaterial color="#14532d" />
-      </mesh>
+      {/* bridge rails */}
+      {BRIDGES.map((b) => {
+        const { x, z } = arenaToWorld(b.x, RIVER_Y);
+        const hw = b.halfW * WORLD_SCALE;
+        return (
+          <group key={`${b.id}-rails`}>
+            <mesh position={[x - hw + 0.04, 0.16, z]}>
+              <boxGeometry args={[0.06, 0.1, riverDepth + 0.1]} />
+              <meshBasicMaterial color="#78350f" />
+            </mesh>
+            <mesh position={[x + hw - 0.04, 0.16, z]}>
+              <boxGeometry args={[0.06, 0.1, riverDepth + 0.1]} />
+              <meshBasicMaterial color="#78350f" />
+            </mesh>
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -146,11 +146,12 @@ function Entities({
           const p = arenaToWorld(t.x, t.y);
           return (
             <mesh key={t.id} position={[p.x, 0.08, p.z]}>
-              <boxGeometry args={[0.35, 0.12, 0.35]} />
-              <meshStandardMaterial color="#44403c" />
+              <boxGeometry args={[0.45, 0.14, 0.45]} />
+              <meshBasicMaterial color="#292524" />
             </mesh>
           );
         }
+        if (!t.alive) return null;
         const p = arenaToWorld(t.x, t.y);
         return (
           <group key={t.id} position={[p.x, 0, p.z]}>
@@ -210,11 +211,9 @@ function Entities({
               position={[p.x + dx / 2, 0.45, p.z + dz / 2]}
               rotation={[0, ang, 0]}
             >
-              <coneGeometry args={[0.18, len, 8]} />
-              <meshStandardMaterial
+              <coneGeometry args={[0.16, len, 6]} />
+              <meshBasicMaterial
                 color="#f97316"
-                emissive="#fb923c"
-                emissiveIntensity={1.2}
                 transparent
                 opacity={Math.min(1, e.ttl * 2.5)}
               />
@@ -223,12 +222,12 @@ function Entities({
         }
         const r = (e.radius || 1) * WORLD_SCALE;
         return (
-          <mesh key={e.id} position={[p.x, 0.2, p.z]}>
-            <sphereGeometry args={[r, 12, 12]} />
-            <meshStandardMaterial
+          <mesh key={e.id} position={[p.x, 0.18, p.z]}>
+            <sphereGeometry args={[r, 8, 8]} />
+            <meshBasicMaterial
               color={e.type.includes('fire') ? '#f97316' : '#e2e8f0'}
               transparent
-              opacity={Math.min(0.55, e.ttl)}
+              opacity={Math.min(0.45, e.ttl)}
             />
           </mesh>
         );
@@ -261,7 +260,7 @@ function DeployPlane({
       }}
     >
       <planeGeometry args={[w, h]} />
-      <meshBasicMaterial transparent opacity={0} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
     </mesh>
   );
 }
@@ -269,15 +268,9 @@ function DeployPlane({
 function SceneInner(props: ArenaSceneProps) {
   return (
     <>
-      <color attach="background" args={['#0a1f12']} />
-      <ambientLight intensity={0.65} />
-      <directionalLight
-        castShadow
-        position={[4, 12, 6]}
-        intensity={1.15}
-        shadow-mapSize={[1024, 1024]}
-      />
-      <hemisphereLight args={['#87ceeb', '#14532d', 0.35]} />
+      <color attach="background" args={['#071a10']} />
+      <ambientLight intensity={0.95} />
+      <directionalLight position={[5, 10, 4]} intensity={0.55} />
       <ArenaGround />
       <Entities
         units={props.units}
@@ -301,12 +294,20 @@ export default function ArenaScene(props: ArenaSceneProps) {
     <WebGLErrorBoundary fallback={fallback}>
       <div className={`arena-canvas-wrap${props.targeting ? ' targeting' : ''}`}>
         <Canvas
-          shadows
-          dpr={[1, 1.75]}
-          gl={{ antialias: true, alpha: false }}
-          camera={{ position: [0, 11.5, 7.5], fov: 42, near: 0.1, far: 80 }}
-          onCreated={({ camera }) => {
+          shadows={false}
+          dpr={[1, 1.25]}
+          gl={{
+            antialias: false,
+            alpha: false,
+            powerPreference: 'high-performance',
+            stencil: false,
+            depth: true,
+          }}
+          camera={{ position: [0, 12, 8.2], fov: 40, near: 0.2, far: 60 }}
+          performance={{ min: 0.5 }}
+          onCreated={({ camera, gl }) => {
             camera.lookAt(0, 0, 0);
+            gl.setClearColor('#071a10');
           }}
         >
           <Suspense fallback={null}>
