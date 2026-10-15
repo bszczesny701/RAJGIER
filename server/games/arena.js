@@ -1058,22 +1058,18 @@ function getPublicArenaState(state, playerId) {
       id: u.id,
       cardId: u.cardId,
       avatar: u.avatar || def?.avatar || 'knight',
-      emoji: def?.emoji || '❓',
-      name: def?.name || u.cardId,
       mine: u.ownerId === playerId,
-      x: pos.x,
-      y: pos.y,
+      x: Math.round(pos.x * 100) / 100,
+      y: Math.round(pos.y * 100) / 100,
       hp: Math.max(0, Math.round(u.hp)),
       maxHp: u.maxHp,
       flying: !!u.flying,
-      hitsAir: !!u.hitsAir,
-      kind: u.kind,
       facing: side === 0 ? u.facing : -u.facing,
       anim: u.anim || 'idle',
       attackAnim: u.attackAnim || 0,
       hitFlash: u.hitFlash || 0,
-      attackTargetX: atx,
-      attackTargetY: aty,
+      attackTargetX: atx == null ? null : Math.round(atx * 100) / 100,
+      attackTargetY: aty == null ? null : Math.round(aty * 100) / 100,
     };
   };
 
@@ -1085,11 +1081,9 @@ function getPublicArenaState(state, playerId) {
     return {
       id: p.id,
       style: p.style,
-      x: pos.x,
-      y: pos.y,
-      tx: tip.x,
-      ty: tip.y,
-      angle,
+      x: Math.round(pos.x * 100) / 100,
+      y: Math.round(pos.y * 100) / 100,
+      angle: Math.round(angle * 1000) / 1000,
       mine: p.ownerId === playerId,
     };
   };

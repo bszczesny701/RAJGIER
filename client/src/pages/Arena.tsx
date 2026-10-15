@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import CardThumb from '../components/arena3d/CardThumb';
+import ArenaFieldCanvas, {
+  type FieldSnapshot,
+} from '../components/arena3d/ArenaFieldCanvas';
 import './Arena.css';
-
-const ArenaScene = lazy(() => import('../components/arena3d/ArenaScene'));
 
 interface ArenaCard {
   id: string;
@@ -16,64 +17,6 @@ interface ArenaCard {
   playable?: boolean;
 }
 
-interface ArenaTower {
-  id: string;
-  type: 'king' | 'princess';
-  lane?: string;
-  mine: boolean;
-  x: number;
-  y: number;
-  hp: number;
-  maxHp: number;
-  alive: boolean;
-  facing?: number;
-  attackAnim?: number;
-}
-
-interface ArenaUnit {
-  id: string;
-  cardId: string;
-  avatar: string;
-  emoji: string;
-  name: string;
-  mine: boolean;
-  x: number;
-  y: number;
-  hp: number;
-  maxHp: number;
-  flying: boolean;
-  kind: string;
-  facing: number;
-  anim: string;
-  attackAnim: number;
-  hitFlash: number;
-  attackTargetX?: number | null;
-  attackTargetY?: number | null;
-}
-
-interface ArenaProjectile {
-  id: string;
-  style: string;
-  x: number;
-  y: number;
-  tx: number;
-  ty: number;
-  angle: number;
-  mine: boolean;
-}
-
-interface ArenaEffect {
-  id: string;
-  type: string;
-  x: number;
-  y: number;
-  radius: number;
-  ttl: number;
-  tx?: number;
-  ty?: number;
-  angle?: number;
-}
-
 interface DeployZone {
   baseMaxY: number;
   leftMaxY: number;
@@ -82,10 +25,8 @@ interface DeployZone {
   rightPush: number;
 }
 
-interface ArenaState {
+interface ArenaHud {
   phase: string;
-  arenaW: number;
-  arenaH: number;
   elixir: number;
   elixirMax: number;
   hand: ArenaCard[];
@@ -94,19 +35,23 @@ interface ArenaState {
   enemyCrowns: number;
   myName: string;
   enemyName: string;
-  towers: ArenaTower[];
-  units: ArenaUnit[];
-  projectiles: ArenaProjectile[];
-  effects: ArenaEffect[];
   deployZone: DeployZone;
-  remainingMs: number;
+  remainingSec: number;
   doubleElixir: boolean;
-  winner: string | null;
-  winReason: string | null;
+  arenaH: number;
 }
 
-function formatTime(ms: number): string {
-  const s = Math.max(0, Math.ceil(ms / 1000));
+interface ArenaFull extends ArenaHud {
+  arenaW: number;
+  remainingMs: number;
+  units: FieldSnapshot['units'];
+  towers: FieldSnapshot['towers'];
+  projectiles: FieldSnapshot['projectiles'];
+  effects: FieldSnapshot['effects'];
+}
+
+function formatTime(sec: number): string {
+  const s = Math.max(0, sec);
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, '0')}`;
@@ -123,13 +68,56 @@ function Crowns({ count }: { count: number }) {
   );
 }
 
-function canPlaceAt(state: ArenaState, cardId: string | null, x: number, y: number): boolean {
+function handKey(hand: ArenaCard[]) {
+  return hand.map((c) => `${c.id}:${c.playable ? 1 : 0}`).join('|');
+}
+
+function hudEqual(a: ArenaHud, b: ArenaHud) {
+  return (
+    a.phase === b.phase &&
+    Math.floor(a.elixir) === Math.floor(b.elixir) &&
+    a.elixirMax === b.elixirMax &&
+    a.myCrowns === b.myCrowns &&
+    a.enemyCrowns === b.enemyCrowns &&
+    a.myName === b.myName &&
+    a.enemyName === b.enemyName &&
+    a.remainingSec === b.remainingSec &&
+    a.doubleElixir === b.doubleElixir &&
+    a.arenaH === b.arenaH &&
+    a.deployZone.leftMaxY === b.deployZone.leftMaxY &&
+    a.deployZone.rightMaxY === b.deployZone.rightMaxY &&
+    a.deployZone.leftPush === b.deployZone.leftPush &&
+    a.deployZone.rightPush === b.deployZone.rightPush &&
+    handKey(a.hand) === handKey(b.hand) &&
+    (a.nextCard?.id || '') === (b.nextCard?.id || '')
+  );
+}
+
+function toHud(data: ArenaFull): ArenaHud {
+  return {
+    phase: data.phase,
+    elixir: data.elixir,
+    elixirMax: data.elixirMax,
+    hand: data.hand,
+    nextCard: data.nextCard,
+    myCrowns: data.myCrowns,
+    enemyCrowns: data.enemyCrowns,
+    myName: data.myName,
+    enemyName: data.enemyName,
+    deployZone: data.deployZone,
+    remainingSec: Math.max(0, Math.ceil(data.remainingMs / 1000)),
+    doubleElixir: data.doubleElixir,
+    arenaH: data.arenaH,
+  };
+}
+
+function canPlaceAt(hud: ArenaHud, cardId: string | null, x: number, y: number, arenaW: number): boolean {
   if (!cardId) return false;
-  const card = state.hand.find((c) => c.id === cardId);
+  const card = hud.hand.find((c) => c.id === cardId);
   if (!card) return false;
   if (card.kind === 'spell') return true;
-  const half = state.arenaW / 2;
-  const maxY = x < half ? state.deployZone.leftMaxY : state.deployZone.rightMaxY;
+  const half = arenaW / 2;
+  const maxY = x < half ? hud.deployZone.leftMaxY : hud.deployZone.rightMaxY;
   return y >= 0.5 && y <= maxY;
 }
 
@@ -149,7 +137,9 @@ export default function Arena() {
     requestGameState,
   } = useGame();
 
-  const [state, setState] = useState<ArenaState | null>(null);
+  const battleRef = useRef<FieldSnapshot | null>(null);
+  const fullRef = useRef<ArenaFull | null>(null);
+  const [hud, setHud] = useState<ArenaHud | null>(null);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const isHost = room?.hostId === playerId;
 
@@ -165,31 +155,35 @@ export default function Arena() {
 
   useEffect(() => {
     if (!socket || !room) return;
-    const handler = (data: ArenaState) => setState(data);
+    const handler = (data: ArenaFull) => {
+      fullRef.current = data;
+      battleRef.current = {
+        arenaW: data.arenaW,
+        arenaH: data.arenaH,
+        units: data.units,
+        towers: data.towers,
+        projectiles: data.projectiles,
+        effects: data.effects,
+      };
+      const nextHud = toHud(data);
+      setHud((prev) => (prev && hudEqual(prev, nextHud) ? prev : nextHud));
+    };
     socket.on('arenaUpdate', handler);
     requestGameState();
     return () => { socket.off('arenaUpdate', handler); };
   }, [socket, room, requestGameState]);
 
   useEffect(() => {
-    if (!selectedCard) return;
-    const card = state?.hand.find((c) => c.id === selectedCard);
+    if (!selectedCard || !hud) return;
+    const card = hud.hand.find((c) => c.id === selectedCard);
     if (!card || card.playable === false) setSelectedCard(null);
-  }, [state, selectedCard]);
+  }, [hud, selectedCard]);
 
-  const pct = (value: number, max: number) =>
-    `${Math.max(0, Math.min(100, (value / max) * 100))}%`;
-
-  const toPercent = (x: number, y: number, w: number, h: number) => ({
-    left: `${(x / w) * 100}%`,
-    top: `${((h - y) / h) * 100}%`,
-  });
-
-  const deploy = (x: number, y: number) => {
-    if (!socket || !selectedCard || !state) return;
-    const card = state.hand.find((c) => c.id === selectedCard);
+  const deploy = useCallback((x: number, y: number) => {
+    if (!socket || !selectedCard || !hud || !fullRef.current) return;
+    const card = hud.hand.find((c) => c.id === selectedCard);
     if (!card || !card.playable) return;
-    if (!canPlaceAt(state, selectedCard, x, y)) return;
+    if (!canPlaceAt(hud, selectedCard, x, y, fullRef.current.arenaW)) return;
 
     socket.emit('arenaPlayCard', {
       cardId: selectedCard,
@@ -199,14 +193,14 @@ export default function Arena() {
       roomCode,
     });
     setSelectedCard(null);
-  };
+  }, [socket, selectedCard, hud, sessionId, roomCode]);
 
   const elixirFill = useMemo(() => {
-    if (!state) return 0;
-    return Math.min(100, (state.elixir / state.elixirMax) * 100);
-  }, [state]);
+    if (!hud) return 0;
+    return Math.min(100, (hud.elixir / hud.elixirMax) * 100);
+  }, [hud]);
 
-  const zoneExpanded = !!(state && (state.deployZone.leftPush > 0 || state.deployZone.rightPush > 0));
+  const zoneExpanded = !!(hud && (hud.deployZone.leftPush > 0 || hud.deployZone.rightPush > 0));
 
   if (!room) return null;
 
@@ -219,7 +213,7 @@ export default function Arena() {
         </div>
       )}
 
-      {!state ? (
+      {!hud ? (
         <div className="arena-loading">
           <CardThumb avatar="knight" alt="" className="arena-loading-thumb" />
           <p>Ładowanie areny…</p>
@@ -228,78 +222,45 @@ export default function Arena() {
         <>
           <header className="arena-hud">
             <div className="arena-hud-side enemy">
-              <span className="arena-hud-name">{state.enemyName || 'Rywal'}</span>
-              <Crowns count={state.enemyCrowns} />
+              <span className="arena-hud-name">{hud.enemyName || 'Rywal'}</span>
+              <Crowns count={hud.enemyCrowns} />
             </div>
             <div className="arena-hud-center">
-              <span className={`arena-timer${state.doubleElixir ? ' double' : ''}`}>
-                {formatTime(state.remainingMs)}
+              <span className={`arena-timer${hud.doubleElixir ? ' double' : ''}`}>
+                {formatTime(hud.remainingSec)}
               </span>
-              {state.doubleElixir && <span className="arena-double">2× eliksir</span>}
+              {hud.doubleElixir && <span className="arena-double">2× eliksir</span>}
               {zoneExpanded && <span className="arena-zone-badge">Strefa +</span>}
             </div>
             <div className="arena-hud-side mine">
-              <Crowns count={state.myCrowns} />
-              <span className="arena-hud-name">{state.myName || 'Ty'}</span>
+              <Crowns count={hud.myCrowns} />
+              <span className="arena-hud-name">{hud.myName || 'Ty'}</span>
             </div>
           </header>
 
           <div className={`arena-field${selectedCard ? ' targeting' : ''}`}>
-            <Suspense fallback={<div className="arena-webgl-fallback">Ładowanie 3D…</div>}>
-              <ArenaScene
-                arenaW={state.arenaW}
-                arenaH={state.arenaH}
-                units={state.units}
-                towers={state.towers}
-                projectiles={state.projectiles}
-                effects={state.effects}
-                targeting={!!selectedCard}
-                onPointerDeploy={deploy}
-              />
-            </Suspense>
+            <ArenaFieldCanvas
+              stateRef={battleRef}
+              targeting={!!selectedCard}
+              onDeploy={deploy}
+            />
 
-            {/* HP overlay (2D) */}
-            <div className="arena-hp-overlay" aria-hidden>
-              {state.towers.filter((t) => t.alive).map((t) => (
-                <div
-                  key={`hp-${t.id}`}
-                  className={`arena-hp-float${t.mine ? ' mine' : ' enemy'}`}
-                  style={toPercent(t.x, t.y, state.arenaW, state.arenaH)}
-                >
-                  <div className="arena-hp">
-                    <div className="arena-hp-fill" style={{ width: pct(t.hp, t.maxHp) }} />
-                  </div>
-                </div>
-              ))}
-              {state.units.map((u) => (
-                <div
-                  key={`hp-${u.id}`}
-                  className={`arena-hp-float tiny${u.mine ? ' mine' : ' enemy'}`}
-                  style={toPercent(u.x, u.y, state.arenaW, state.arenaH)}
-                >
-                  <div className="arena-hp tiny">
-                    <div className="arena-hp-fill" style={{ width: pct(u.hp, u.maxHp) }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {selectedCard && state.hand.find((c) => c.id === selectedCard)?.kind !== 'spell' && (
+            {selectedCard && hud.hand.find((c) => c.id === selectedCard)?.kind !== 'spell' && (
               <>
                 <div
                   className="arena-zone left"
-                  style={{ height: `${(state.deployZone.leftMaxY / state.arenaH) * 100}%` }}
+                  style={{ height: `${(hud.deployZone.leftMaxY / hud.arenaH) * 100}%` }}
                 />
                 <div
                   className="arena-zone right"
-                  style={{ height: `${(state.deployZone.rightMaxY / state.arenaH) * 100}%` }}
+                  style={{ height: `${(hud.deployZone.rightMaxY / hud.arenaH) * 100}%` }}
                 />
               </>
             )}
 
             {selectedCard && (
               <p className="arena-hint">
-                {state.hand.find((c) => c.id === selectedCard)?.kind === 'spell'
+                {hud.hand.find((c) => c.id === selectedCard)?.kind === 'spell'
                   ? 'Dotknij arenę, by rzucić czar'
                   : zoneExpanded
                     ? 'Strefa poszerzona — wystaw za mostem w otwartym pasie'
@@ -310,9 +271,9 @@ export default function Arena() {
 
           <footer className="arena-dock">
             <div className="arena-next" title="Następna karta">
-              {state.nextCard ? (
+              {hud.nextCard ? (
                 <>
-                  <CardThumb avatar={state.nextCard.avatar || 'knight'} alt={state.nextCard.name} />
+                  <CardThumb avatar={hud.nextCard.avatar || 'knight'} alt={hud.nextCard.name} />
                   <span className="arena-next-label">Dalej</span>
                 </>
               ) : (
@@ -321,9 +282,9 @@ export default function Arena() {
             </div>
 
             <div className="arena-hand">
-              {state.hand.map((card, index) => {
+              {hud.hand.map((card, index) => {
                 const selected = selectedCard === card.id;
-                const disabled = !card.playable || state.phase !== 'playing';
+                const disabled = !card.playable || hud.phase !== 'playing';
                 return (
                   <button
                     key={`${card.id}-${index}`}
@@ -342,14 +303,14 @@ export default function Arena() {
               })}
             </div>
 
-            <div className="arena-elixir" aria-label={`Eliksir ${Math.floor(state.elixir)}`}>
+            <div className="arena-elixir" aria-label={`Eliksir ${Math.floor(hud.elixir)}`}>
               <div className="arena-elixir-bar">
                 <div
-                  className={`arena-elixir-fill${state.doubleElixir ? ' double' : ''}`}
+                  className={`arena-elixir-fill${hud.doubleElixir ? ' double' : ''}`}
                   style={{ height: `${elixirFill}%` }}
                 />
               </div>
-              <span className="arena-elixir-num">{Math.floor(state.elixir)}</span>
+              <span className="arena-elixir-num">{Math.floor(hud.elixir)}</span>
             </div>
           </footer>
         </>
