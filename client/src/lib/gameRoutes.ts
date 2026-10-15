@@ -1,4 +1,4 @@
-export type GameId = 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly' | 'arena';
+export type GameId = 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly';
 
 export const MAX_ROOM_PLAYERS = 6;
 
@@ -15,7 +15,6 @@ export const GAME_PLAYER_LIMITS: Record<GameId, GamePlayerLimits> = {
   unos: { min: 2, max: 4 },
   czolko: { min: 2, max: 4 },
   monopoly: { min: 2, max: 6 },
-  arena: { min: 2, max: 2 },
 };
 
 const GAME_ROUTES: Record<GameId, string> = {
@@ -26,7 +25,6 @@ const GAME_ROUTES: Record<GameId, string> = {
   unos: '/unos',
   czolko: '/czolko',
   monopoly: '/monopoly',
-  arena: '/arena',
 };
 
 const GAME_LABELS: Record<GameId, string> = {
@@ -37,7 +35,6 @@ const GAME_LABELS: Record<GameId, string> = {
   unos: 'UNOS',
   czolko: 'Czółko',
   monopoly: 'Monopoly',
-  arena: 'Arena',
 };
 
 export function getGameRoute(game: GameId | null | undefined): string | null {

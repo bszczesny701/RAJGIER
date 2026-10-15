@@ -29,7 +29,6 @@ function GameOptionButton({
     sudoku: { emoji: '🔢', title: 'Sudoku', desc: 'Kto szybciej ułoży' },
     unos: { emoji: '🃏', title: 'UNOS', desc: 'Pojedynek kart' },
     monopoly: { emoji: '🏠', title: 'Monopoly', desc: 'Inwestycje, losy, 2–6 graczy' },
-    arena: { emoji: '⚔️', title: 'Arena', desc: 'Bitwa kart jak Clash Royale' },
   };
 
   const info = meta[game];
@@ -128,14 +127,13 @@ function CzolkoGameOption({
 }
 
 const BOT_GAMES: {
-  id: 'battleship' | 'unos' | 'arena' | 'monopoly';
+  id: 'battleship' | 'unos' | 'monopoly';
   emoji: string;
   title: string;
   desc: string;
 }[] = [
   { id: 'battleship', emoji: '🚢', title: 'Statki', desc: 'vs Bot' },
   { id: 'unos', emoji: '🃏', title: 'UNOS', desc: 'vs Bot' },
-  { id: 'arena', emoji: '⚔️', title: 'Arena', desc: 'vs Bot' },
   { id: 'monopoly', emoji: '🏠', title: 'Monopoly', desc: 'vs Bot' },
 ];
 
@@ -162,7 +160,7 @@ export default function Lobby() {
   const canPlayBot = isHost && humanCount === 1 && room?.status === 'waiting';
   const gameRoute = getGameRoute(room?.game);
 
-  const handleBotGame = async (game: 'battleship' | 'unos' | 'arena' | 'monopoly') => {
+  const handleBotGame = async (game: 'battleship' | 'unos' | 'monopoly') => {
     setBotLoading(game);
     clearError();
     const ok = await startWithBot(game);
@@ -279,7 +277,6 @@ export default function Lobby() {
             <GameOptionButton game="crossword" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="sudoku" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="unos" playerCount={playerCount} onSelect={selectGame} />
-            <GameOptionButton game="arena" playerCount={playerCount} onSelect={selectGame} />
             <GameOptionButton game="monopoly" playerCount={playerCount} onSelect={selectGame} />
           </div>
           <CzolkoGameOption
@@ -330,9 +327,7 @@ export default function Lobby() {
                             ? 'Pierwszy do 5 trafień!'
                             : gameOver.game === 'monopoly'
                               ? 'Ostatni z majątkiem wygrywa!'
-                              : gameOver.game === 'arena'
-                                ? 'Więcej koron albo zniszczona wieża króla!'
-                                : 'Znalazłeś więcej słów!'}
+                              : 'Znalazłeś więcej słów!'}
             </p>
             {isHost ? (
               <button className="btn btn-primary" onClick={() => { clearGameOver(); backToLobby(); }}>

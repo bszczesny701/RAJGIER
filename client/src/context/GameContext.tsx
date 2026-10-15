@@ -25,7 +25,7 @@ export interface Room {
   players: Player[];
   hostId: string;
   status: 'waiting' | 'playing' | 'finished';
-  game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly' | 'arena' | null;
+  game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly' | null;
 }
 
 export interface GameOverEvent {
@@ -58,11 +58,11 @@ interface GameContextValue {
   createRoom: () => Promise<boolean>;
   joinRoom: (code: string) => Promise<boolean>;
   selectGame: (
-    game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly' | 'arena',
+    game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly',
     options?: CzolkoGameOptions,
   ) => void;
   startWithBot: (
-    game: 'battleship' | 'unos' | 'arena' | 'monopoly',
+    game: 'battleship' | 'unos' | 'monopoly',
   ) => Promise<boolean>;
   backToLobby: () => void;
   leaveRoom: () => void;
@@ -197,7 +197,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [socket, playerName, sessionId]);
 
   const selectGame = useCallback((
-    game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly' | 'arena',
+    game: 'battleship' | 'wordsearch' | 'crossword' | 'sudoku' | 'unos' | 'czolko' | 'monopoly',
     options?: CzolkoGameOptions,
   ) => {
     socket?.emit('selectGame', {
@@ -209,7 +209,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [socket, sessionId, roomCode]);
 
   const startWithBot = useCallback((
-    game: 'battleship' | 'unos' | 'arena' | 'monopoly',
+    game: 'battleship' | 'unos' | 'monopoly',
   ): Promise<boolean> => {
     return new Promise((resolve) => {
       if (!socket) return resolve(false);

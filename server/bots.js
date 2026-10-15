@@ -1,5 +1,5 @@
 /**
- * Proste AI botów: Statki, UNOS, Arena, Monopoly.
+ * Proste AI botów: Statki, UNOS, Monopoly.
  */
 
 const { SHIP_TYPES, GRID_SIZE, placeShipsOnBoard, shoot } = require('./games/battleship');
@@ -13,12 +13,6 @@ const {
   COLORS,
 } = require('./games/unos');
 const {
-  playCard: arenaPlayCard,
-  getPublicArenaState,
-  CARDS: ARENA_CARDS,
-  ARENA_H,
-} = require('./games/arena');
-const {
   monopolyRoll,
   monopolyPayJail,
   monopolyBuy,
@@ -28,7 +22,7 @@ const {
 } = require('./games/monopoly');
 const { getSpace, JAIL_FEE } = require('./games/monopolyBoard');
 
-const BOT_GAMES = new Set(['battleship', 'unos', 'arena', 'monopoly']);
+const BOT_GAMES = new Set(['battleship', 'unos', 'monopoly']);
 const BOT_NAMES = ['Bot Raj', 'CyberBot', 'Pixel', 'Hex'];
 
 function isBotGame(game) {
@@ -96,7 +90,6 @@ function runBots(room, hooks) {
   for (const bot of bots) {
     if (room.game === 'battleship') acted = botBattleship(room, bot, hooks) || acted;
     else if (room.game === 'unos') acted = botUnos(room, bot, hooks) || acted;
-    else if (room.game === 'arena') acted = botArena(room, bot, hooks) || acted;
     else if (room.game === 'monopoly') acted = botMonopoly(room, bot, hooks) || acted;
   }
 
@@ -104,10 +97,6 @@ function runBots(room, hooks) {
     hooks.afterBotAction(room);
   }
 
-  // Arena / ciągłe tury — planuj kolejny ruch
-  if (room.status === 'playing' && room.game === 'arena' && !room.gameState.winner) {
-    return 900 + Math.floor(Math.random() * 700);
-  }
   if (room.status === 'playing' && room.game === 'unos' && !room.gameState.winner) {
     const turnBot = bots.some((b) => room.gameState.currentTurn === b.id)
       || bots.some((b) => room.gameState.chooseColorFor === b.id);
@@ -334,44 +323,6 @@ function pickBestWildColor(state, playerId) {
     }
   }
   return best;
-}
-
-/* ——— Arena ——— */
-
-function botArena(room, bot) {
-  const state = room.gameState;
-  if (state.phase !== 'playing' || state.winner) return false;
-
-  const player = state.players[bot.id];
-  if (!player) return false;
-
-  const playable = player.hand
-    .map((id) => ARENA_CARDS[id])
-    .filter((c) => c && player.elixir >= c.cost);
-  if (!playable.length) return false;
-
-  // nie spamuj — czasem poczekaj na droższą kartę
-  if (Math.random() < 0.28 && player.elixir < 6) return false;
-
-  playable.sort((a, b) => a.cost - b.cost);
-  const pick = Math.random() < 0.65
-    ? playable[0]
-    : playable[Math.floor(Math.random() * playable.length)];
-
-  const pub = getPublicArenaState(state, bot.id);
-  let x;
-  let y;
-  if (pick.kind === 'spell') {
-    x = 2 + Math.random() * 14;
-    y = ARENA_H * 0.55 + Math.random() * (ARENA_H * 0.35);
-  } else {
-    x = 1.5 + Math.random() * 15;
-    const zoneMax = x < 9 ? pub.deployZone.leftMaxY : pub.deployZone.rightMaxY;
-    y = 1.2 + Math.random() * Math.max(1.5, zoneMax - 1.5);
-  }
-
-  const result = arenaPlayCard(state, bot.id, pick.id, x, y);
-  return !!result.ok;
 }
 
 /* ——— Monopoly ——— */
