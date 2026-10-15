@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import CardThumb from '../components/arena3d/CardThumb';
-import ArenaFieldCanvas, {
-  type FieldSnapshot,
-} from '../components/arena3d/ArenaFieldCanvas';
+import type { FieldSnapshot } from '../components/arena3d/types';
 import './Arena.css';
+
+const ArenaScene = lazy(() => import('../components/arena3d/ArenaScene'));
 
 interface ArenaCard {
   id: string;
@@ -239,11 +239,13 @@ export default function Arena() {
           </header>
 
           <div className={`arena-field${selectedCard ? ' targeting' : ''}`}>
-            <ArenaFieldCanvas
-              stateRef={battleRef}
-              targeting={!!selectedCard}
-              onDeploy={deploy}
-            />
+            <Suspense fallback={<div className="arena-webgl-fallback">Ładowanie 3D…</div>}>
+              <ArenaScene
+                stateRef={battleRef}
+                targeting={!!selectedCard}
+                onDeploy={deploy}
+              />
+            </Suspense>
 
             {selectedCard && hud.hand.find((c) => c.id === selectedCard)?.kind !== 'spell' && (
               <>
